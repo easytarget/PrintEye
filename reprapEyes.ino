@@ -1,4 +1,3 @@
-
 /*
   RepRap Eyes; a simple twin-panel display for reprap firmware with a spare serial port (eg. Duet)
   - performs a small, display-only, subset of panelDue functionality, uses same comms channel and port
@@ -6,6 +5,8 @@
   Nice display possibilities courtesy of:
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 */
+
+//#define debug
 
 // power&clock divider lib: https://arduino.stackexchange.com/a/5414
 #include <avr/power.h>
@@ -37,10 +38,11 @@ int bedunits=3;
 int toolmain=123;
 int toolunits=4;
 
-int toolhead=3;
+int toolhead=0;
 
 int noreply = 1;
-int mainstate = 0;
+int printerstate = 0;
+
 
 int bright = 3; // track display brightness
 int lastbright = 0; // unnesscarily setting brightness causes a screen flicker
@@ -49,11 +51,13 @@ int lastbright = 0; // unnesscarily setting brightness causes a screen flicker
 void setup(void)
 {
   // First; lets drop to 8MHz since that is in-spec for a ATMega328P @ 3.3v
-  clock_prescale_set(clock_div_2);
+  // clock_prescale_set(clock_div_2);
 
   // Some serial is needed
   Serial.begin(115200);
-  Serial.println("EyeDrop: START");
+  #ifdef DEBUG
+    Serial.println("EyeDrop: START");
+  #endif
 
   // Displays
   LOLED.begin();
@@ -77,7 +81,9 @@ void godark(void)
 void splash(void)
 {
   godark();
-  Serial.println("V0.01 - alpha - owen.carter@gmail.com");
+  #ifdef DEBUG
+    Serial.println("V0.01 - alpha - owen.carter@gmail.com");
+  #endif
 
   LOLED.setFont(u8x8_font_8x13B_1x2_r);
   LOLED.setCursor(5,6);
@@ -125,6 +131,47 @@ bool setbrightness()
 
 void updatedisplay()
 {
+  // Because redraws are slow and visible, the order of drawing here is deliberate
+  // to ensure updates look 'smooth' to the user 
+
+  // First update lower status bars
+  LOLED.setFont(u8x8_font_8x13B_1x2_r);
+  LOLED.setCursor(1,6);
+  if (printerstate == 0 ) LOLED.print("Init");
+  if (printerstate == 1 ) LOLED.print("Run");
+ 
+  ROLED.setFont(u8x8_font_8x13B_1x2_r);
+  ROLED.setCursor(0,6);
+  ROLED.print("#: ");
+  ROLED.print(noreply);
+  ROLED.print("      ");
+  
+  // bed and head text
+  LOLED.setFont(u8x8_font_8x13B_1x2_r);
+  LOLED.setCursor(10,0);
+  LOLED.print("Bed");
+  
+  ROLED.setFont(u8x8_font_8x13B_1x2_r);
+  ROLED.setCursor(11,0);
+  ROLED.print("E");
+  ROLED.print(toolhead);
+
+  
+
+  // Next update activity icons.
+  // todo: if Bed active
+  LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
+  LOLED.setCursor(14,0);
+  LOLED.print("N");
+  // todo: else print a space there to blank it.
+
+  // todo: If Tool Active
+  ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
+  ROLED.setCursor(14,0);
+  ROLED.print("T"); // (down arrow to line)
+  // todo: else print a space there to blank it.
+
+  // Finally the main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
   LOLED.setCursor(0,0);
   if ( bedmain < 100 ) LOLED.print(" "); // pad decimal
@@ -145,57 +192,53 @@ void updatedisplay()
   ROLED.print(".");
   ROLED.print(toolunits);
 
-  LOLED.setFont(u8x8_font_8x13B_1x2_r);
-  LOLED.setCursor(10,0);
-  LOLED.print("Bed");
-  LOLED.setCursor(1,6);
-  if (mainstate == 0 ) LOLED.print("Init");
-  if (mainstate == 1 ) LOLED.print("Run");
- 
-  ROLED.setFont(u8x8_font_8x13B_1x2_r);
-  ROLED.setCursor(11,0);
-  ROLED.print("E");
-  ROLED.print(toolhead);
-  ROLED.setCursor(0,6);
-  ROLED.print("#: ");
-  ROLED.print(noreply);
-
-  // if Bed active
-  LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
-  LOLED.setCursor(14,0);
-  LOLED.print("N");
-
-  // If Tool Active
-  ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
-  ROLED.setCursor(14,0);
-  ROLED.print("T"); // (down arrow to line)
-
 }
+
+int updateinterval = 500; // here 4 testing
 
 void loop(void)
 {
-  Serial.print("DataRequest: (");
-  Serial.print(noreply);
-  Serial.print(" unreplied)");
-  // debug
-  Serial.print(": freeMemory()=");
-  Serial.print(freeMemory());
-  Serial.print(" : Bed= ");
-  Serial.print(bedmain);
-  Serial.print(".");
-  Serial.print(bedunits);
-  Serial.print(" : Tool= ");
-  Serial.print(toolmain);
-  Serial.print(".");
-  Serial.print(toolunits);
-  Serial.print(" : Brightness= ");
-  Serial.print(bright);
+  // int updateinterval = 500; // Sleep time, 500ms when on, 2s when off
+
+  if ( updateinterval == 500 ) // TODO: use printerstate to determine this
+  {
+    Serial.println("M355 P1");
+  }
+  else 
+  {
+    Serial.println("M355 P0");
+  }
+ 
+
+  #ifdef DEBUG
+    Serial.print("DataRequest sent: (");
+    Serial.print(noreply);
+    Serial.print(" unreplied)");
+    Serial.print(": freeMemory()=");
+    Serial.print(freeMemory());
+    Serial.print(" : Bed= ");
+    Serial.print(bedmain);
+    Serial.print(".");
+    Serial.print(bedunits);
+    Serial.print(" : Tool= ");
+    Serial.print(toolmain);
+    Serial.print(".");
+    Serial.print(toolunits);
+    Serial.print(" : Brightness= ");
+    Serial.print(bright);
+    Serial.println();
+  #endif
 
   // update brightness level as needed; returns true if screen is on, false if blank.
   if ( setbrightness() )
   {
     // if we are not blank, update the display with latest readings
     updatedisplay();
+    updateinterval = 500; //  todo: set this from printer status, not here
+  }
+  else
+  {
+    updateinterval = 2000; //  todo: set this from printer status , not here 
   }
 
   
@@ -213,16 +256,14 @@ void loop(void)
     int a = Serial.read();
     switch (a) 
     {
-      case '0': bright = 0; break;
-      case 'l': bright = 1; break;
-      case 'm': bright = 2; break;
-      case 'h': bright = 3; break;
+      case '0': bright = 0; noreply = 0; break;
+      case 'l': bright = 1; noreply = 0; break;
+      case 'm': bright = 2; noreply = 0; break;
+      case 'h': bright = 3; noreply = 0; break;
     }
     while ( Serial.available() ) Serial.read(); // flush buffer
   }
 
-  delay(1000);
-
-  Serial.println(); // Move to next request
+  delay(updateinterval);
 
 }
