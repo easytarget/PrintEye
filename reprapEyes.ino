@@ -6,6 +6,10 @@
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 */
 
+// FONT reference
+// https://github.com/olikraus/u8g2/wiki/fntgrpiconic
+
+
 //#define debug
 
 // power&clock divider lib: https://arduino.stackexchange.com/a/5414
@@ -22,9 +26,12 @@
 // U8x8 Contructor List 
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 // Please update the pin numbers according to your setup. Use U8X8_PIN_NONE if the reset pin is not connected
-// WORKS! - HW I2C only..  //U8X8_SSD1306_128X64_NONAME_HW_I2C LOLED(/* reset=*/ U8X8_PIN_NONE); 	      
 U8X8_SSD1306_128X64_NONAME_SW_I2C LOLED(/* clock=*/ A3, /* data=*/ A2, /* reset=*/ U8X8_PIN_NONE);   // Left OLED
 U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ A5, /* data=*/ A4, /* reset=*/ U8X8_PIN_NONE);   // Right OLED
+// HW I2C works, but the ATMega 328P only has one HW interface available, so if your displays have address conflicts this 
+// can omly be used for for one display; and the results looks weird and imbalanced. IMHO better to use two SW interfaces
+//U8X8_SSD1306_128X64_NONAME_HW_I2C ROLED(/* reset=*/ U8X8_PIN_NONE);         
+
 
 // JSON containers
 // todo
@@ -33,21 +40,30 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ A5, /* data=*/ A4, /* reset=
 
 // globals
 
-int bedmain=12;
+// Debug data to be used until proper display processing is implemented
+int bedmain=12;  
 int bedunits=3;
 int toolmain=123;
 int toolunits=4;
 
-int toolhead=0;
+// JSON response data: (-1 if unset/unspecified)
+int bedtemp = 35;   // Current bed temp 
+int bedset=-1;     // Bed target temp
+int tooltemp = 101; // latest tool temp
+int toolset=-1;    // Tool target temp
+int toolhead=0;     // Tool to be monitored
 
-int noreply = 1;
+// Master printer status (from JSON)
 int printerstate = 0;
 
+int validresponse = false; // true when the last recieved data was valid
+int noreply = 1;           // count failed requests
 
 int bright = 3; // track display brightness
-int lastbright = 0; // unnesscarily setting brightness causes a screen flicker
+int lastbright = 3; // and changes to that
 
-// Start displays, serial and blank
+// Start displays and serial comms
+
 void setup(void)
 {
   // First; lets drop to 8MHz since that is in-spec for a ATMega328P @ 3.3v
@@ -61,37 +77,102 @@ void setup(void)
 
   // Displays
   LOLED.begin();
+  LOLED.setContrast(0); // blank asap, screenbuffer often full of crud
   LOLED.setFlipMode(1);
   ROLED.begin();
+  ROLED.setContrast(0); // blank asap, screenbuffer often full of crud
   ROLED.setFlipMode(1);
   
-  godark();
-  splash();
+  screenstart(); // wake + clear display at init
+  delay(250);
+  commwait();
 }
 
-void godark(void)
+void screensleep(void)
 {
-  // Blank
-  LOLED.setFont(u8x8_font_8x13B_1x2_r);
-  ROLED.setFont(u8x8_font_8x13B_1x2_r);
+  // Blank the screen and turn on powersave with icon
+  LOLED.clear();
+  ROLED.clear();
+  
+  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  LOLED.setCursor(6,1);
+  LOLED.print("N"); // power off icon in this font set
+  
+  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  ROLED.setCursor(6 ,1);
+  ROLED.print("N"); // power off icon in this font set
+
+  delay(150);
+
+  LOLED.clear();
+  ROLED.clear();
+
+  LOLED.setPowerSave(true);
+}
+
+void screenwake()
+{
+  // Take the screen out of powersave with animation
+  LOLED.clear();
+  ROLED.clear();
+
+  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  LOLED.setCursor(6,1);
+  LOLED.print("C"); // Power bolt icon in this font set
+  
+  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  ROLED.setCursor(6 ,1);
+  ROLED.print("C");  // Power bolt icon in this font set
+  
+  LOLED.setPowerSave(false);
+
+  delay(150);
+  
   LOLED.clear();
   ROLED.clear();
 }
 
-void splash(void)
+void screenstart()
 {
-  godark();
   #ifdef DEBUG
     Serial.println("V0.01 - alpha - owen.carter@gmail.com");
   #endif
 
+  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  LOLED.setCursor(6,1);
+  LOLED.print("C"); // Power bolt icon in this font set
+  
+  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  ROLED.setCursor(6 ,1);
+  ROLED.print("C");  // Power bolt icon in this font set
+  
   LOLED.setFont(u8x8_font_8x13B_1x2_r);
-  LOLED.setCursor(5,6);
-  LOLED.print(" Bed ");
+  LOLED.setCursor(3,6);
+  LOLED.print(" PrinterEye ");
+  
+  ROLED.setFont(u8x8_font_8x13B_1x2_r);
+  ROLED.setCursor(3,6);
+  ROLED.print(" by Owen ");
+
+  LOLED.setContrast(255); // Switch On
+  ROLED.setContrast(255); //
+
+  delay(1200);
+  LOLED.clear();
+  ROLED.clear();
+}
+
+void commwait()
+{
+  Serial.println("M355 P1");
+
+  LOLED.setFont(u8x8_font_8x13B_1x2_r);
+  LOLED.setCursor(2,6);
+  LOLED.print(" Waiting for ");
   
   ROLED.setFont(u8x8_font_8x13B_1x2_r);
   ROLED.setCursor(5,6);
-  ROLED.print(" Tool ");
+  ROLED.print("printer");
 
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6,1);
@@ -101,31 +182,45 @@ void splash(void)
   ROLED.setCursor(6 ,1);
   ROLED.print("F"); // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
 
-  delay(1750);
-
+  while ( !Serial.available() ) delay(100); // wait for serial, any serial
+  // Todo; replace the following with the JSON processor so we start with the initial data.
+  while ( Serial.available() ) Serial.read(); // flush buffer
   LOLED.clear();
   ROLED.clear();
+
 }
 
+// Set the (non-linear) contrast level to off/low/mid/high (if supported)
 bool setbrightness() 
 {
-  // Sets the (non-linear) contrast level to off/low/mid/high 
   int contrast;
+
+  // TODO: remove blanking + return values from this section, only do brightness. handle blanking in main status loop
+
+  // Only update if the brightnes level has changed, setting contrast causes a screen flicker whenever called.
   if ( bright != lastbright) 
   {
-    // Three brightness levels low,mid,high, ignore all else
-    if ( bright == 0 ) { 
-      // Blank the screen as well as setting contrast = 0
-      godark;
-      contrast = 0;
-    }
-    else if ( bright == 1 ) contrast = 1;   // three
-    else if ( bright == 2 ) contrast = 64;  // brightness
-    else if ( bright == 3 ) contrast = 255; // levels
+    
+    // Off and 3 brightness levels low,mid,high, ignore all else
+    if ( bright == 0 ) contrast = 0;
+    else if ( bright == 1 ) contrast = 1;
+    else if ( bright == 2 ) contrast = 64;
+    else if ( bright == 3 ) contrast = 255;
+
+    // Sleep the screen if blank
+    if ( bright == 0 ) screensleep();
+
+    // set the contrast and remember it
     LOLED.setContrast(contrast);
     ROLED.setContrast(contrast);
+
+    // Wake screen if necesscary
+    if ( lastbright == 0 ) screenwake();
+
+    // remember what we just did
     lastbright = bright;
   }
+  // return a on/off type status
   if ( bright > 0 ) return(true); else return(false); 
 }
 
@@ -134,63 +229,113 @@ void updatedisplay()
   // Because redraws are slow and visible, the order of drawing here is deliberate
   // to ensure updates look 'smooth' to the user 
 
-  // First update lower status bars
-  LOLED.setFont(u8x8_font_8x13B_1x2_r);
+  // First update smaller status blocks
+  LOLED.setFont(u8x8_font_8x13B_1x2_f);
+  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+
   LOLED.setCursor(1,6);
-  if (printerstate == 0 ) LOLED.print("Init");
-  if (printerstate == 1 ) LOLED.print("Run");
+  if (printerstate == 0 ) LOLED.print("Init    ");
+  else if (printerstate == 1 ) LOLED.print("Boot    ");
+  else if (printerstate == 2 ) LOLED.print("        "); // idle
+  else if (printerstate == 3 ) LOLED.print("Printing"); // idle
+  else LOLED.print("!COMERR!");
  
-  ROLED.setFont(u8x8_font_8x13B_1x2_r);
   ROLED.setCursor(0,6);
   ROLED.print("#: ");
   ROLED.print(noreply);
-  ROLED.print("      ");
-  
+  ROLED.print("   ");
+
+  if ((bedset < 0 ) || ( bedset > 999 ))
+  { // blank when out of bounds
+    LOLED.setCursor(11,6);
+    LOLED.print("     ");
+  }
+  else
+  { // Show target temp
+    LOLED.setCursor(11,6);
+    if ( bedset < 100 ) LOLED.print(" ");
+    if ( bedset < 10 ) LOLED.print(" "); 
+    LOLED.print(char(187)); // target arrow
+    LOLED.print(bedset);
+    LOLED.print(char(176)); // degrees symbol
+  }
+
+  if ((toolset < 0 ) || ( toolset > 999))
+  { // blank when out of bounds
+    ROLED.setCursor(11,6);
+    ROLED.print("     ");
+  }
+  else
+  { // Show target temp
+    ROLED.setCursor(11,6);
+    if ( toolset < 100 ) ROLED.print(" ");
+    if ( toolset < 10 ) ROLED.print(" "); 
+    ROLED.print(char(187)); // target arrow
+    ROLED.print(toolset);
+    ROLED.print(char(176)); // degrees symbol
+  }
+
   // bed and head text
-  LOLED.setFont(u8x8_font_8x13B_1x2_r);
   LOLED.setCursor(10,0);
   LOLED.print("Bed");
   
-  ROLED.setFont(u8x8_font_8x13B_1x2_r);
   ROLED.setCursor(11,0);
   ROLED.print("E");
   ROLED.print(toolhead);
 
+  // Bed and Tool status icons
+  if ( bedset == -1 )
+  {
+    LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
+    LOLED.setCursor(14,0);
+    LOLED.print("N"); // power off icon in this font set
+  }
+  else
+  {
+    LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
+    LOLED.setCursor(14,0);
+    LOLED.print("N"); // heater icon in this font set
+  }
   
-
-  // Next update activity icons.
-  // todo: if Bed active
-  LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
-  LOLED.setCursor(14,0);
-  LOLED.print("N");
-  // todo: else print a space there to blank it.
-
-  // todo: If Tool Active
-  ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
-  ROLED.setCursor(14,0);
-  ROLED.print("T"); // (down arrow to line)
-  // todo: else print a space there to blank it.
+  if ( toolset == -1 )
+  {
+    ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
+    ROLED.setCursor(14,0);
+    ROLED.print("N"); // power off icon in this font set
+  }
+  else
+  {
+    ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
+    ROLED.setCursor(14,0);
+    ROLED.print("T"); // down arrow to line in this font set (looks a bit like a hotend..)
+  }
 
   // Finally the main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
   LOLED.setCursor(0,0);
-  if ( bedmain < 100 ) LOLED.print(" "); // pad decimal
+  if ( bedmain < 100 ) LOLED.print(" ");
+  if ( bedmain < 10 ) LOLED.print(" ");
   LOLED.print(bedmain);
 
   LOLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   LOLED.setCursor(9,3);
   LOLED.print(".");
   LOLED.print(bedunits);
+  LOLED.setFont(u8x8_font_8x13B_1x2_f);
+  LOLED.print(char(176));
 
   ROLED.setFont(u8x8_font_inr33_3x6_n);
   ROLED.setCursor(0,0);
-  if ( toolmain < 100 ) ROLED.print(" "); // pad decimal
+  if ( toolmain < 100 ) ROLED.print(" ");
+  if ( toolmain < 10 ) ROLED.print(" ");
   ROLED.print(toolmain);
 
   ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   ROLED.setCursor(9,3);
   ROLED.print(".");
   ROLED.print(toolunits);
+  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+  ROLED.print(char(176));
 
 }
 
@@ -260,6 +405,11 @@ void loop(void)
       case 'l': bright = 1; noreply = 0; break;
       case 'm': bright = 2; noreply = 0; break;
       case 'h': bright = 3; noreply = 0; break;
+      case 'B': bedset = Serial.parseInt(); break;
+      case 'T': toolset = Serial.parseInt(); break;
+      case 'b': bedtemp = Serial.parseInt(); break;
+      case 't': tooltemp = Serial.parseInt(); break;
+      case 'P': printerstate = Serial.parseInt(); break;
     }
     while ( Serial.available() ) Serial.read(); // flush buffer
   }
