@@ -13,7 +13,7 @@
 //#define debug
 
 // power&clock divider lib: https://arduino.stackexchange.com/a/5414
-#include <avr/power.h>
+//#include <avr/power.h>
 
 #include <Arduino.h>
 #include <U8x8lib.h>
@@ -61,6 +61,7 @@ int noreply = 1;           // count failed requests
 
 int bright = 3; // track display brightness
 int lastbright = 3; // and changes to that
+int contrast = 255; // Derived from the brightness level.
 
 // Start displays and serial comms
 
@@ -88,139 +89,135 @@ void setup(void)
   commwait();
 }
 
-void screensleep(void)
+void screenclean()
 {
-  // Blank the screen and turn on powersave with icon
   LOLED.clear();
   ROLED.clear();
-  
+
+}
+void goblank()
+{
+  LOLED.setContrast(0);
+  ROLED.setContrast(0); 
+  screenclean();
+}
+
+void unblank()
+{
+  LOLED.setContrast(contrast);
+  ROLED.setContrast(contrast); 
+}
+
+void screensleep(void)
+{ // flash power off icon then blank the screen and turn on powersave
+  goblank();
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6,1);
-  LOLED.print("N"); // power off icon in this font set
-  
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  ROLED.setCursor(6 ,1);
+  LOLED.setCursor(6,1);
+  ROLED.setCursor(6,1);
+  LOLED.print("N"); // power off icon in this font set
   ROLED.print("N"); // power off icon in this font set
-
-  delay(150);
-
-  LOLED.clear();
-  ROLED.clear();
-
+  unblank();
+  delay(666);
+  goblank();
   LOLED.setPowerSave(true);
+  ROLED.setPowerSave(true);
 }
 
 void screenwake()
-{
-  // Take the screen out of powersave with animation
-  LOLED.clear();
-  ROLED.clear();
-
+{ // Take the screen out of powersave and flash the power on icon
+  goblank(); 
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6,1);
-  LOLED.print("C"); // Power bolt icon in this font set
-  
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  ROLED.setCursor(6 ,1);
-  ROLED.print("C");  // Power bolt icon in this font set
-  
+  LOLED.setCursor(6,1);
+  ROLED.setCursor(6,1);
+  LOLED.print("O"); // Resume icon in this font set
+  ROLED.print("O"); // Resume icon in this font set
   LOLED.setPowerSave(false);
-
-  delay(150);
+  ROLED.setPowerSave(false);
+  unblank();
+  delay(666); // flash the icons then clean and reset screen
+  goblank();
+  unblank();
   
-  LOLED.clear();
-  ROLED.clear();
 }
 
 void screenstart()
-{
+{ // start the screen for the first time (splashscreen..)
   #ifdef DEBUG
     Serial.println("V0.01 - alpha - owen.carter@gmail.com");
   #endif
 
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6,1);
-  LOLED.print("C"); // Power bolt icon in this font set
-  
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  ROLED.setCursor(6 ,1);
-  ROLED.print("C");  // Power bolt icon in this font set
-  
+  LOLED.setCursor(6,1);
+  ROLED.setCursor(6,1);
+  LOLED.print("C"); // Power bolt icon in this font set
+  ROLED.print("C"); // Power bolt icon in this font set
   LOLED.setFont(u8x8_font_8x13B_1x2_r);
-  LOLED.setCursor(3,6);
-  LOLED.print(" PrinterEye ");
-  
   ROLED.setFont(u8x8_font_8x13B_1x2_r);
+  LOLED.setCursor(3,6);
   ROLED.setCursor(3,6);
+  LOLED.print(" PrinterEye ");
   ROLED.print(" by Owen ");
-
-  LOLED.setContrast(255); // Switch On
-  ROLED.setContrast(255); //
-
-  delay(1200);
-  LOLED.clear();
-  ROLED.clear();
+  unblank();
+  delay(2000); // flash the startup icons
+  goblank();
+  unblank();
 }
 
 void commwait()
 {
   Serial.println("M355 P1");
 
+  goblank();
   LOLED.setFont(u8x8_font_8x13B_1x2_r);
-  LOLED.setCursor(2,6);
-  LOLED.print(" Waiting for ");
-  
   ROLED.setFont(u8x8_font_8x13B_1x2_r);
+  LOLED.setCursor(2,6);
   ROLED.setCursor(5,6);
+  LOLED.print(" Waiting for ");
   ROLED.print("printer");
-
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6,1);
-  LOLED.print("F"); // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
-  
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  ROLED.setCursor(6 ,1);
-  ROLED.print("F"); // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
-
+  LOLED.setCursor(6,1);
+  ROLED.setCursor(6,1);
+  LOLED.print("F"); // comms icon in this font set
+  ROLED.print("F"); // comms icon in this font set
+  unblank();
+  // Todo; some sort of animation while waiting..
   while ( !Serial.available() ) delay(100); // wait for serial, any serial
-  // Todo; replace the following with the JSON processor so we start with the initial data.
-  while ( Serial.available() ) Serial.read(); // flush buffer
-  LOLED.clear();
-  ROLED.clear();
-
+  goblank();
+  unblank();
 }
 
 // Set the (non-linear) contrast level to off/low/mid/high (if supported)
 bool setbrightness() 
 {
-  int contrast;
-
   // TODO: remove blanking + return values from this section, only do brightness. handle blanking in main status loop
 
   // Only update if the brightnes level has changed, setting contrast causes a screen flicker whenever called.
-  if ( bright != lastbright) 
-  {
+  if ( bright != lastbright) {
     
-    // Off and 3 brightness levels low,mid,high, ignore all else
-    if ( bright == 0 ) contrast = 0;
-    else if ( bright == 1 ) contrast = 1;
+    // 3 brightness levels low,mid,high, ignore all else
+    if ( bright == 1 ) contrast = 1;
     else if ( bright == 2 ) contrast = 64;
     else if ( bright == 3 ) contrast = 255;
 
     // Sleep the screen if blank
-    if ( bright == 0 ) screensleep();
-
-    // set the contrast and remember it
-    LOLED.setContrast(contrast);
-    ROLED.setContrast(contrast);
-
+    if ( bright == 0 ) {
+      screensleep();
+    } else {
+      LOLED.setContrast(contrast);
+      ROLED.setContrast(contrast);
+    }
+    
     // Wake screen if necesscary
     if ( lastbright == 0 ) screenwake();
 
     // remember what we just did
     lastbright = bright;
   }
-  // return a on/off type status
+  // return on/off status
   if ( bright > 0 ) return(true); else return(false); 
 }
 
@@ -247,32 +244,34 @@ void updatedisplay()
 
   if ((bedset < 0 ) || ( bedset > 999 ))
   { // blank when out of bounds
-    LOLED.setCursor(11,6);
-    LOLED.print("     ");
+    LOLED.setCursor(10,6);
+    LOLED.print("      ");
   }
   else
   { // Show target temp
-    LOLED.setCursor(11,6);
+    LOLED.setCursor(10,6);
     if ( bedset < 100 ) LOLED.print(" ");
     if ( bedset < 10 ) LOLED.print(" "); 
-    LOLED.print(char(187)); // target arrow
+    LOLED.print("(");
     LOLED.print(bedset);
     LOLED.print(char(176)); // degrees symbol
+    LOLED.print(")");
   }
 
   if ((toolset < 0 ) || ( toolset > 999))
   { // blank when out of bounds
-    ROLED.setCursor(11,6);
-    ROLED.print("     ");
+    ROLED.setCursor(10,6);
+    ROLED.print("      ");
   }
   else
   { // Show target temp
-    ROLED.setCursor(11,6);
+    ROLED.setCursor(10,6);
     if ( toolset < 100 ) ROLED.print(" ");
     if ( toolset < 10 ) ROLED.print(" "); 
-    ROLED.print(char(187)); // target arrow
+    ROLED.print("(");
     ROLED.print(toolset);
     ROLED.print(char(176)); // degrees symbol
+    ROLED.print(")");
   }
 
   // bed and head text
@@ -281,7 +280,7 @@ void updatedisplay()
   
   ROLED.setCursor(11,0);
   ROLED.print("E");
-  ROLED.print(toolhead);
+  ROLED.print(toolhead); 
 
   // Bed and Tool status icons
   if ( bedset == -1 )
