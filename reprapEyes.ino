@@ -18,14 +18,15 @@
 //#include <avr/power.h>
 
 #include <Arduino.h>
-#include <U8x8lib.h>
 
 // Sigh, It's Jason
-//#include <Arduino_JSON.h>
+#include <ArduinoJson.h>
+StaticJsonDocument<450> responsedoc;
 
 // debug : To enable add MemoryFree.c & .h from https://playground.arduino.cc/Code/AvailableMemory/ to sketch
-#include "MemoryFree.h"
+//#include "MemoryFree.h"
 
+#include <U8x8lib.h>
 // U8x8 Contructor List
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 // Please update the pin numbers according to your setup. Use U8X8_PIN_NONE if the reset pin is not connected
@@ -37,18 +38,17 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ A5, /* data=*/ A4, /* reset=
 // End of constructor list
 
 
-// DEBUG data to be used until proper display processing is implemented
+// Main temp displays split into integer and decimal
 int bedmain = 12;
 int bedunits = 3;
 int toolmain = 123;
 int toolunits = 4;
 
 // JSON response data: (-1 if unset/unspecified)
-//int bedtemp = 35;   // Current bed temp
 int bedset = -1;   // Bed target temp
-//int tooltemp = 101; // latest tool temp
 int toolset = -1;  // Tool target temp
-int toolhead = 0;   // Tool to be monitored
+int toolhead = 0;  // Tool to be monitored
+int done = -1;     // Percentage printed
 
 // Master printer status (from JSON)
 char printerstatus = "-"; // from m408 status key, '-' means unread
@@ -76,6 +76,9 @@ void setup(void)
   // Some serial is needed
   Serial.begin(57600); // DUET default is 57600,
   Serial.setTimeout(500); // give the printer max 500ms to send complete json block
+
+  // It's Jason
+
 
   // Displays
   LOLED.begin();
@@ -117,15 +120,15 @@ void unblank()
   ROLED.setContrast(bright);
 }
 
-void screensleep(void)
+void screensleep()
 { // flash power off icon, blank the screen and turn on powersave
   goblank();
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print("N"); // power off icon in this font set
-  ROLED.print("N"); // power off icon in this font set
+  LOLED.print(F("N")); // power off icon in this font set
+  ROLED.print(F("N")); // power off icon in this font set
   unblank();
   delay(666); // flash the power off icons
   goblank();
@@ -144,8 +147,8 @@ void screenwake()
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print("O"); // Resume icon in this font set
-  ROLED.print("O"); // Resume icon in this font set
+  LOLED.print(F("O")); // Resume icon in this font set
+  ROLED.print(F("O")); // Resume icon in this font set
   unblank();
   delay(666); // flash the icons then clean and reset screen
   goblank();
@@ -159,14 +162,14 @@ void screenstart()
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print("C"); // Power bolt icon in this font set
-  ROLED.print("C"); // Power bolt icon in this font set
+  LOLED.print(F("C")); // Power bolt icon in this font set
+  ROLED.print(F("C")); // Power bolt icon in this font set
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
   LOLED.setCursor(3, 6);
   ROLED.setCursor(3, 6);
-  LOLED.print(" PrintEye ");
-  ROLED.print(" by Owen ");
+  LOLED.print(F(" PrintEye "));
+  ROLED.print(F(" by Owen "));
   unblank();
 }
 
@@ -180,14 +183,14 @@ void commwait()
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
   LOLED.setCursor(2, 6);
   ROLED.setCursor(5, 6);
-  LOLED.print(" Waiting for ");
-  ROLED.print("printer");
+  LOLED.print(F(" Waiting for "));
+  ROLED.print(F("printer"));
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print("F"); // comms icon in this font set
-  ROLED.print("F"); // comms icon in this font set
+  LOLED.print(F("F")); // comms icon in this font set
+  ROLED.print(F("F")); // comms icon in this font set
 
   // screen on (even in powersave mode)
   LOLED.setPowerSave(false); 
@@ -196,13 +199,13 @@ void commwait()
   
   delay(333); // a brief pause while animation is displayed
   // Todo; repeat sending M408 and some sort of animation while waiting..
-  Serial.print("CommWait - ");
-  Serial.println("M408 P0");
+  Serial.print(F("CommWait - "));
+  Serial.println(F("M408 P0"));
   while ( !Serial.available() ) delay(1); // wait for serial, any serial
   noreply = 0;
   goblank();
   bright = preservebright;
-  if (screenpower) 
+  if (!screenpower) 
   { // turn screens off again if in powersave mode
     LOLED.setPowerSave(false); 
     ROLED.setPowerSave(false);
@@ -251,107 +254,121 @@ void updatedisplay()
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
 
   LOLED.setCursor(1, 6);
-  if (printerstatus == 'O' ) LOLED.print("Poweroff");
-  else if (printerstatus == 'B' ) LOLED.print("Busy    ");
-  else if (printerstatus == 'I' ) LOLED.print("Init    "); // idle
-  else if (printerstatus == 'P' ) LOLED.print("Printing"); 
-  else LOLED.print("!COMERR!");
+  if (printerstatus == 'O' )      LOLED.print(F("Poweroff"));
+  else if (printerstatus == 'I' ) LOLED.print(F("        ")); // Idle
+  else if (printerstatus == 'P' ) LOLED.print(F("Printing"));
+  else if (printerstatus == 'S' ) LOLED.print(F("Stopped ")); 
+  else if (printerstatus == 'C' ) LOLED.print(F("Config  ")); 
+  else if (printerstatus == 'A' ) LOLED.print(F("Paused  ")); 
+  else if (printerstatus == 'D' ) LOLED.print(F("Pausing ")); 
+  else if (printerstatus == 'R' ) LOLED.print(F("Resuming")); 
+  else if (printerstatus == 'B' ) LOLED.print(F("Busy    ")); 
+  else if (printerstatus == 'F' ) LOLED.print(F("Updating")); 
+  else                            LOLED.print(F("Unknown "));
 
   ROLED.setCursor(0, 6);
-  ROLED.print("#: ");
-  ROLED.print(noreply);
-  ROLED.print("   ");
+  if ((printerstatus == 'P') || (printerstatus == 'A') || 
+      (printerstatus == 'D') || (printerstatus == 'R'))
+  {
+    ROLED.print(done);
+    ROLED.print(F("%  "));
+  }
+  else
+  {
+    ROLED.print(F("      "));
+  }
 
-  if ((bedset < 0 ) || ( bedset > 999 ))
+  if ((bedset <= 0 ) || ( bedset > 999 ))
   { // blank when out of bounds
     LOLED.setCursor(10, 6);
-    LOLED.print("      ");
+    LOLED.print(F("      "));
   }
   else
   { // Show target temp
     LOLED.setCursor(10, 6);
     if ( bedset < 100 ) LOLED.print(" ");
     if ( bedset < 10 ) LOLED.print(" ");
-    LOLED.print("(");
+    LOLED.print(F("("));
     LOLED.print(bedset);
     LOLED.print(char(176)); // degrees symbol
-    LOLED.print(")");
+    LOLED.print(F(")"));
   }
 
-  if ((toolset < 0 ) || ( toolset > 999))
+  if ((toolset <= 0 ) || ( toolset > 999))
   { // blank when out of bounds
     ROLED.setCursor(10, 6);
-    ROLED.print("      ");
+    ROLED.print(F("      "));
   }
   else
   { // Show target temp
     ROLED.setCursor(10, 6);
-    if ( toolset < 100 ) ROLED.print(" ");
-    if ( toolset < 10 ) ROLED.print(" ");
-    ROLED.print("(");
+    if ( toolset < 100 ) ROLED.print(F(" "));
+    if ( toolset < 10 ) ROLED.print(F(" "));
+    ROLED.print(F("("));
     ROLED.print(toolset);
     ROLED.print(char(176)); // degrees symbol
-    ROLED.print(")");
+    ROLED.print(F(")"));
   }
 
   // bed and head text
   LOLED.setCursor(10, 0);
-  LOLED.print("Bed");
+  LOLED.print(F("Bed"));
 
   ROLED.setCursor(11, 0);
-  ROLED.print("E");
+  ROLED.print(F("E"));
   ROLED.print(toolhead);
-
+  if (toolhead < 10) ROLED.print(F(" "));
+  
   // Bed and Tool status icons
-  if ( bedset == -1 )
+  if ( bedset <= 0 )
   {
     LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print("N"); // power off icon in this font set
+    LOLED.print(F("N")); // power off icon in this font set
   }
   else
   {
     LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print("N"); // heater icon in this font set
+    LOLED.print(F("N")); // heater icon in this font set
   }
 
-  if ( toolset == -1 )
+  if ( toolset <= 0 )
   {
     ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print("N"); // power off icon in this font set
+    ROLED.print(F("N")); // power off icon in this font set
   }
   else
   {
     ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print("T"); // down arrow to line in this font set (looks a bit like a hotend..)
+    ROLED.print(F("T")); // down arrow to line in this font set (looks a bit like a hotend..)
   }
 
   // Finally the main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
   LOLED.setCursor(0, 0);
-  if ( bedmain < 100 ) LOLED.print(" ");
-  if ( bedmain < 10 ) LOLED.print(" ");
+  if ( bedmain < 100 ) LOLED.print(F(" "));
+  if ( bedmain < 10 ) LOLED.print(F(" "));
   LOLED.print(bedmain);
 
   LOLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   LOLED.setCursor(9, 3);
-  LOLED.print(".");
+  LOLED.print(F("."));
   LOLED.print(bedunits);
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
   LOLED.print(char(176));
 
   ROLED.setFont(u8x8_font_inr33_3x6_n);
   ROLED.setCursor(0, 0);
-  if ( toolmain < 100 ) ROLED.print(" ");
-  if ( toolmain < 10 ) ROLED.print(" ");
+  if ( toolmain < 100 ) ROLED.print(F(" "));
+  if ( toolmain < 10 ) ROLED.print(F(" "));
   ROLED.print(toolmain);
 
   ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   ROLED.setCursor(9, 3);
-  ROLED.print(".");
+  ROLED.print(F("."));
   ROLED.print(toolunits);
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
   ROLED.print(char(176));
@@ -369,8 +386,8 @@ bool m408parser()
 { // parse a M408 result; or give an error.
   // M408 is FLAT, no recursive sections, so we can read until we see a 
   // closing brace '}' without breaking.
-  const int jsonSize = 512;
-  char json[jsonSize + 1];
+  const int jsonSize = 450;
+  static char json[jsonSize + 1];
 
   int index = Serial.readBytesUntil('\n',json,jsonSize);
   json[index] = '\0'; // Null terminate the string
@@ -380,14 +397,81 @@ bool m408parser()
   
   // return false if not terminated properly.
   if ( json[index-2] != '}' ) return (false);
-  
-  // DEBUG O/P
-  Serial.print("Jason Sez:");
+
+  // DEBUG
+  Serial.print(F("Json : "));
   Serial.println(json);
-  Serial.print("Length = ");
-  Serial.print(index); // counts from zero..
-  Serial.print(" : Progmem = ");
-  Serial.println(freeMemory());
+  
+  DeserializationError error = deserializeJson(responsedoc, json);
+  // Test if parsing succeeded.
+  if (error) {
+    // enable for debug
+    //Serial.print(F("deserializeJson() failed: "));
+    //Serial.println(error.c_str());
+    return(false);
+  }
+
+  // Printer status
+  char* setstatus =  responsedoc[F("status")];
+  if (responsedoc.containsKey(F("status"))) printerstatus = setstatus[0];
+
+  // Current Tool
+  signed int tool = responsedoc[F("tool")];
+  if ((tool >= 0) && (tool <= 99) && responsedoc.containsKey(F("status"))) toolhead = tool;
+
+  float btemp = responsedoc[F("heaters")][0];
+  if (responsedoc.containsKey(F("heaters"))) 
+  {
+    bedmain = btemp; // implicit cast to integer
+    bedunits = (btemp - bedmain) * 10;
+  }
+  
+  float etemp = responsedoc[F("heaters")][toolhead+1];
+  if (responsedoc.containsKey(F("heaters"))) 
+  {
+    toolmain = etemp; // implicit cast to integer
+    toolunits = (etemp - toolmain) * 10;
+  }
+
+  float bset = responsedoc[F("active")][0];
+  if (responsedoc.containsKey(F("active"))) 
+  {
+    bedset = bset; // implicit cast to integer
+  }
+  
+  float eset = responsedoc[F("active")][toolhead+1];
+  if (responsedoc.containsKey(F("active"))) 
+  {
+    toolset = eset; // implicit cast to integer
+  }
+
+  float printed = responsedoc[F("fraction_printed")];
+  if (responsedoc.containsKey(F("fraction_printed"))) 
+  {
+    done = printed * 100; // implicit cast to integer 
+  }
+
+  float interval = responsedoc[F("printeye_interval")];
+  if (responsedoc.containsKey(F("printeye_interval"))) 
+  {
+    updateinterval = interval; // implicit cast to integer 
+  }
+
+  float fails = responsedoc[F("printeye_maxfail")];
+  if (responsedoc.containsKey(F("printeye_maxfail"))) 
+  {
+    maxfail = fails; // implicit cast to integer 
+  }
+
+  float dim = responsedoc[F("printeye_brightness")];
+  if ((dim >= 0) && (dim <= 255) && responsedoc.containsKey(F("printeye_brightness"))) 
+  {
+    bright = dim; // implicit cast to integer 
+  }
+
+  // DEBUG
+  //Serial.print(F("Progmem = "));
+  //Serial.println(freeMemory());
 
   noreply = 0; // success; reset the fail count
   return(true);
@@ -405,7 +489,7 @@ void loop(void)
 {
   // Begin with the data request to the RepRap controller
   // P0 is the most basic info request, but has all the data we use
-  Serial.println("M408 P0");
+  Serial.println(F("M408 P0"));
 
   // This is the 'MAIN' loop where we spend most of our time waiting for
   // serial responses having sent the M408 request.
@@ -419,7 +503,7 @@ void loop(void)
         // If it begins with a brace, assume Json
         case '{': if ( m408parser() ) break;
 
-        // DEBUG : do all the below with JSON.
+/**        // DEBUG : do all the below with JSON.
         // Light control, take the next character as command
         case '=': Serial.read(); switch (Serial.read())
           {
@@ -433,15 +517,9 @@ void loop(void)
           break; 
 
         // DEBUG: options below are useful for testing
-        case 'B': Serial.read(); bedset = Serial.parseInt(); noreply = 0; break;
-        case 'T': Serial.read(); toolset = Serial.parseInt(); noreply = 0; break;
-        //case 'b': Serial.read(); bedtemp = Serial.parseInt(); noreply = 0; break;
-        //case 't': Serial.read(); tooltemp = Serial.parseInt(); noreply = 0; break;
-        case 'A': Serial.read(); toolhead = Serial.parseInt(); noreply = 0; break;
-        case 'P': Serial.read(); printerstatus = Serial.read(); noreply = 0; break;
         case 'F': Serial.read(); maxfail = Serial.parseInt(); noreply = 0; break;
-        
-        default : Serial.read(); // invalid, clean from buffer
+**/        
+        default : Serial.read(); // not a valid char, clean from buffer
       }
     }
     else
@@ -466,7 +544,7 @@ void loop(void)
 
   // always assume the next request will fail, json parser resets the count on success
   noreply++;
-  if (maxfail == 0) {
+  if (maxfail != -1) {
     // once max number of failed requests is reached, go to 'waiting for comms' mode.
     if ( noreply >= maxfail ) commwait();
   }
