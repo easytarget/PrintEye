@@ -31,7 +31,8 @@ The ArduinoJSON library is used, which provides some robustness in processing ke
 * You will need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with the underclock option discussed in the setup() section of the sketch. Display updates will be even slower for this, and you might need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
 
 ## Enhancements: 
-* Set 'idletext' (32 chars, spans both displays) to be displayed in idel mode via Json (memory??, 33 bytes to store!)
-* can we multiplex the HW I2C bus (SCK) with IO pins and a couple of signal diodes to address one display or the other, or both for setup, clearing etc.
+* Pause button
 * WiFi status/strength? not in the Json message, but handy. Network and IP address in idle mode?
+ * Or provide via Duet Config setting the idletext..
+* Investigate wether it is possibel to multiplex the HW I2C bus (SCK) with IO pins and a couple of signal diodes to address one display or the other, or both for setup, clearing etc.
 * Find a lower memory footprint Json parser

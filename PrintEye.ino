@@ -55,26 +55,26 @@ int updateinterval = 1000; // how many ~1ms loops we spend looking for a respons
 int maxfail = 4;           // max failed requests before entering comms fail mode (-1 to disable)
 bool powersave = true;     // Go into powersave when controller reports status 'O' (PSU off)
 int bright = 255;          // Screen brightness (0-255, sets OLED 'contrast', not very linear imho.
-static char idletext[33] = "01234567890123456789012345678901"; // for the idle display
-//char idletext[33] = "                                "; // for the idle display
+char ltext[17] = " Idle           "; // Left status line for the idle display
+char rtext[17] = "                "; // Right status line for the idle display
 
 // PrintEye
 int noreply = 1;           // count failed requests (start by assuming we have missed some replies)
 int currentbright = 0;     // track changes to brightness
 bool screenpower = true;   // OLED on/off 
 
-// Json response data:       (-1 if unset/unspecified)
-char printerstatus = "-";  // from m408 status key, '-' means unread
-int bedset = -1;           // Bed target temp
-int toolset = -1;          // Tool target temp
+// Json response data:
+char printerstatus = '-';  // from m408 status key, default '-' is shown as 'connecting'
+int bedset = 0;           // Bed target temp
+int toolset = 0;          // Tool target temp
 int toolhead = 0;          // Tool to be monitored (assume E0 by default)
-int done = -1;             // Percentage printed
+int done = 0;             // Percentage printed
 
 // Main temp display is derived from Json values, split into the integer value and it's decimal
-int bedmain = 12;
-int bedunits = 3;
-int toolmain = 123;
-int toolunits = 4;
+int bedmain = 0;
+int bedunits = 0;
+int toolmain = 0;
+int toolunits = 0;
 
 
 //   ____       _
@@ -115,7 +115,6 @@ void setup()
 
   screenstart(); // Splash Screen
   delay(2500); // For 2.5 seconds
-  commwait(); // Now wait for first response
 }
 
 
@@ -200,7 +199,7 @@ void screenstart()
 void commwait()
 { // Display the 'Waiting for Comms' splash
   int preservebright = bright;
-  bright = 255;
+  if (bright == 0) bright = 1; // show 'waiting' even if 'blank'
   goblank();
   
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
@@ -222,19 +221,7 @@ void commwait()
   unblank();
   
   delay(333); // a brief pause while animation is displayed
-  // Todo; repeat sending M408 and some sort of animation while waiting..
-  Serial.print(F("CommWait - "));
-  Serial.println(F("M408 P0"));
-  while ( !Serial.available() ) delay(1); // wait for serial, any serial
-  noreply = 0;
-  goblank();
   bright = preservebright;
-  if (!screenpower) 
-  { // turn screens off again if in powersave mode
-    LOLED.setPowerSave(false); 
-    ROLED.setPowerSave(false);
-  }
-  unblank();
 }
 
 bool setbrightness()
@@ -278,61 +265,67 @@ void updatedisplay()
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
 
-  LOLED.setCursor(1, 6);
-  if (printerstatus == 'O' )      LOLED.print(F("PSU Off "));
-  else if (printerstatus == 'I' ) LOLED.print(F("        ")); // Idle.
-  else if (printerstatus == 'P' ) LOLED.print(F("Printing"));
-  else if (printerstatus == 'S' ) LOLED.print(F("Stopped "));
-  else if (printerstatus == 'C' ) LOLED.print(F("Config  "));
-  else if (printerstatus == 'A' ) LOLED.print(F("Paused  "));
-  else if (printerstatus == 'D' ) LOLED.print(F("Pausing "));
-  else if (printerstatus == 'R' ) LOLED.print(F("Resuming"));
-  else if (printerstatus == 'B' ) LOLED.print(F("Busy    "));
-  else if (printerstatus == 'F' ) LOLED.print(F("Updating"));
-  else                            LOLED.print(F("Unknown "));
-
+  LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
-  if ((printerstatus == 'P') || (printerstatus == 'A') || 
-      (printerstatus == 'D') || (printerstatus == 'R'))
-  { // Only display progress when needed
-    ROLED.print(done);
-    ROLED.print(F("%  "));
-  }
-  else
-  {
-    ROLED.print(F("      "));
-  }
+  
+  if (printerstatus == 'O' )      LOLED.print(F(" PSU Off "));
+  else if (printerstatus == 'I' ) { LOLED.print(ltext); ROLED.print(rtext); }
+  else if (printerstatus == 'P' ) LOLED.print(F(" Printing"));
+  else if (printerstatus == 'S' ) LOLED.print(F(" Stopped "));
+  else if (printerstatus == 'C' ) LOLED.print(F(" Config  "));
+  else if (printerstatus == 'A' ) LOLED.print(F(" Paused  "));
+  else if (printerstatus == 'D' ) LOLED.print(F(" Pausing "));
+  else if (printerstatus == 'R' ) LOLED.print(F(" Resuming"));
+  else if (printerstatus == 'B' ) LOLED.print(F(" Busy    "));
+  else if (printerstatus == 'F' ) LOLED.print(F(" Updating"));
+  else if (printerstatus == '-' ) LOLED.print(F("Connecting"));
+  else                            LOLED.print(F("          ")); // show nothing if unknown.
 
-  if ((bedset <= 0 ) || ( bedset > 999 ))
-  { // blank when out of bounds
-    LOLED.setCursor(10, 6);
-    LOLED.print(F("      "));
-  }
-  else
-  { // Show target temp
-    LOLED.setCursor(10, 6);
-    if ( bedset < 100 ) LOLED.print(" ");
-    if ( bedset < 10 ) LOLED.print(" ");
-    LOLED.print(F("("));
-    LOLED.print(bedset);
-    LOLED.print(char(176)); // degrees symbol
-    LOLED.print(F(")"));
-  }
-
-  if ((toolset <= 0 ) || ( toolset > 999))
-  { // blank when out of bounds
-    ROLED.setCursor(10, 6);
-    ROLED.print(F("      "));
-  }
-  else
-  { // Show target temp
-    ROLED.setCursor(10, 6);
-    if ( toolset < 100 ) ROLED.print(F(" "));
-    if ( toolset < 10 ) ROLED.print(F(" "));
-    ROLED.print(F("("));
-    ROLED.print(toolset);
-    ROLED.print(char(176)); // degrees symbol
-    ROLED.print(F(")"));
+  if ( printerstatus != 'I' )
+  { // dont overwrite the status line when in Idle mode
+    
+    if ((printerstatus == 'P') || (printerstatus == 'A') || 
+        (printerstatus == 'D') || (printerstatus == 'R'))
+    { // Only display progress when needed
+      ROLED.print(done);
+      ROLED.print(F("%  "));
+    }
+    else
+    {
+      ROLED.print(F("      "));
+    }
+  
+    if ((bedset <= 0 ) || ( bedset > 999 ))
+    { // blank when out of bounds
+      LOLED.setCursor(10, 6);
+      LOLED.print(F("      "));
+    }
+    else
+    { // Show target temp
+      LOLED.setCursor(10, 6);
+      if ( bedset < 100 ) LOLED.print(" ");
+      if ( bedset < 10 ) LOLED.print(" ");
+      LOLED.print(F("("));
+      LOLED.print(bedset);
+      LOLED.print(char(176)); // degrees symbol
+      LOLED.print(F(")"));
+    }
+  
+    if ((toolset <= 0 ) || ( toolset > 999))
+    { // blank when out of bounds
+      ROLED.setCursor(10, 6);
+      ROLED.print(F("      "));
+    }
+    else
+    { // Show target temp
+      ROLED.setCursor(10, 6);
+      if ( toolset < 100 ) ROLED.print(F(" "));
+      if ( toolset < 10 ) ROLED.print(F(" "));
+      ROLED.print(F("("));
+      ROLED.print(toolset);
+      ROLED.print(char(176)); // degrees symbol
+      ROLED.print(F(")"));
+    }
   }
 
   // bed and head text
@@ -427,10 +420,10 @@ bool m408parser()
   // DEBUG
   //Serial.print(F("freeMemory pre = "));
   //Serial.println(freeMemory());
-  Serial.print(F("Json : "));
-  Serial.println(json);
-  Serial.print(F("Size : "));
-  Serial.println(index); // (include the null since it is in memory too)
+  //Serial.print(F("Json : "));
+  //Serial.println(json);
+  //Serial.print(F("Size : "));
+  //Serial.println(index); // (include the null since it is in memory too)
 
   DeserializationError error = deserializeJson(responsedoc, json);
   // Test if parsing succeeded.
@@ -443,7 +436,21 @@ bool m408parser()
 
   // Printer status
   char* setstatus =  responsedoc[F("status")];
-  if (responsedoc.containsKey(F("status"))) printerstatus = setstatus[0];
+  if (responsedoc.containsKey(F("status"))) 
+  {
+    if ((printerstatus == 'I') && (setstatus[0] != 'I'))
+    { // we are leaving Idle mode, clear idletext
+      //LOLED.clearLine(6); Importing the clearLine function used a lot more program memory
+      //ROLED.clearLine(6); than just clearing the line with a functions we already use.
+      LOLED.setFont(u8x8_font_8x13B_1x2_f);
+      ROLED.setFont(u8x8_font_8x13B_1x2_f);
+      LOLED.setCursor(0, 6);
+      ROLED.setCursor(0, 6);
+      LOLED.print(F("                "));
+      ROLED.print(F("                "));
+    }
+    printerstatus = setstatus[0];
+  }
 
   // Current Tool
   signed int tool = responsedoc[F("tool")];
@@ -494,6 +501,7 @@ bool m408parser()
   float fails = responsedoc[F("printeye_maxfail")];
   if (responsedoc.containsKey(F("printeye_maxfail"))) 
   {
+    if (fails == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
     maxfail = fails; // implicit cast to integer 
   }
 
@@ -504,15 +512,28 @@ bool m408parser()
   }
 
   float pwr = responsedoc[F("printeye_powersave")];
-  if ((pwr || !pwr) && responsedoc.containsKey(F("printeye_powersave"))) 
+  if (responsedoc.containsKey(F("printeye_powersave")))
   {
     powersave = pwr; // implicit cast to boolean 
+  }
+
+  char* newtext = responsedoc[F("printeye_idletext")];
+  if (responsedoc.containsKey(F("printeye_idletext")))
+  {
+    for ( byte a = 0; a < 16; a++ )
+    {
+      ltext[a] = newtext[a];
+      rtext[a] = newtext[a+16];
+    }
   }
 
  // DEBUG
   //Serial.print(F("freeMemory post = "));
   //Serial.println(freeMemory());
 
+  // Clear the screens if waiting for printer message is displayed
+  if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
+  
   noreply = 0; // success; reset the fail count
   return(true);
 }
@@ -537,29 +558,10 @@ void loop(void)
   {
     if ( Serial.available() )
     {
-      // we have something; peek at it and decide what to do
-      switch (Serial.peek())
-      {
-        // If it begins with a brace, assume Json
-        case '{': if ( m408parser() ) break;
-
-/**        // DEBUG : do all the below with JSON.
-        // Light control, take the next character as command
-        case '=': Serial.read(); switch (Serial.read())
-          {
-            case 'o': bright = 0; break;
-            case 'l': bright = 1; break;
-            case 'm': bright = 64; break;
-            case 'h': bright = 255; break;
-            case 'c': bright = Serial.parseInt(); break;
-          }
-          noreply = 0; 
-          break; 
-
-        // DEBUG: options below are useful for testing
-        case 'F': Serial.read(); maxfail = Serial.parseInt(); noreply = 0; break;
-**/        
-        default : Serial.read(); // not a valid char, clean from buffer
+      // We have something; peek at it and decide what to do, does it look like a Json line?
+      if (Serial.peek() == '{')
+      { // It might be Json; parse it
+        if ( !m408parser() ) Serial.read(); // not a valid char, clean from buffer
       }
     }
     else
@@ -580,26 +582,18 @@ void loop(void)
     if (( printerstatus != 'O') && !screenpower) screenwake();
   }
 
-  
-  
-  // Update brightness level as needed (returns true if screen is on, false if blank)
-  // test if we have had a response, and are powered.
+  // Update Screen! .. but first update brightness level as needed (returns true 
+  // if screen is on, false if blank) and then test if we have had a response
+  // during this cycle, and wether PrintEye is in standby mode
   // If all above is good, update the display.
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
   // always assume the next request will fail, json parser resets the count on success
   noreply++;
   if (maxfail != -1) {
-    // once max number of failed requests is reached, go to 'waiting for comms' mode.
-    if ( noreply >= maxfail ) commwait();
+    // once max number of failed requests is reached, show 'waiting for printer'
+    if ( noreply == maxfail ) commwait();
   }
-  
-  // DEBUG increment counters for demo
-  toolmain += rand() % 16;
-  toolunits = rand() % 10;
-  if ( toolmain > 310 ) toolmain = 8;
-  bedmain += rand() % 4;
-  bedunits = rand() % 10;
-  if ( bedmain > 110 ) bedmain = 15;
 
+  // And start the next request cycle
 }
