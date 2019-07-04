@@ -10,7 +10,11 @@
 // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
 // Duet reference
 // https://duet3d.dozuki.com/Wiki/Duet_Wiring_Diagrams
+// Gcode reference
 // https://duet3d.dozuki.com/Wiki/Gcode#Section_M408_Report_JSON_style_response
+// https://duet3d.dozuki.com/Wiki/Gcode#Section_Replies_from_the_RepRap_machine_to_the_host_computer
+// https://duet3d.dozuki.com/Wiki/Gcode#Section_M575_Set_serial_comms_parameters
+// https://duet3d.dozuki.com/Wiki/Gcode#Section_M118_Send_Message_to_Specific_Target
 // https://reprap.org/forum/read.php?416,830988
 
 // Maybe use for a 3.3v arduino with a 16Mhz cristal, note; affects serial baud rate..
@@ -19,11 +23,19 @@
 
 #include <Arduino.h>
 
-// Sigh, It's Jason
+// Ohshit, It's Jason.
 #include <ArduinoJson.h>
-StaticJsonDocument<450> responsedoc;
 
-// debug : To enable add MemoryFree.c & .h from https://playground.arduino.cc/Code/AvailableMemory/ to sketch
+// I allow ~450 chars for the incoming Json stream, currently I see max.400 chars in the M408
+// Json response, this may change in the future but be very wary of increasing the buffer sizes;
+// increasing these increases lowers stack/heap space and increases the chance of a memory error 
+// while the response is being parsed.
+StaticJsonDocument<450> responsedoc; // <== increase this at your peril.
+                                     // You must also increase 'jsonSize' in m408parser()
+
+// If you increase the above you can enable this tool to dump out the free memory during runtime.
+// Some example dumps are in the 
+//From https://playground.arduino.cc/Code/AvailableMemory/
 //#include "tools/MemoryFree.h"
 
 #include <U8x8lib.h>
@@ -38,28 +50,32 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ A5, /* data=*/ A4, /* reset=
 // End of constructor list
 
 
-// Main temp displays split into integer and decimal
+// Primary Settings          (can also be set via Json messages to serial port, see README)
+int updateinterval = 1000; // how many ~1ms loops we spend looking for a response after M408
+int maxfail = 4;           // max failed requests before entering comms fail mode (-1 to disable)
+bool powersave = true;     // Go into powersave when controller reports status 'O' (PSU off)
+int bright = 255;          // Screen brightness (0-255, sets OLED 'contrast', not very linear imho.
+static char idletext[33] = "01234567890123456789012345678901"; // for the idle display
+//char idletext[33] = "                                "; // for the idle display
+
+// PrintEye
+int noreply = 1;           // count failed requests (start by assuming we have missed some replies)
+int currentbright = 0;     // track changes to brightness
+bool screenpower = true;   // OLED on/off 
+
+// Json response data:       (-1 if unset/unspecified)
+char printerstatus = "-";  // from m408 status key, '-' means unread
+int bedset = -1;           // Bed target temp
+int toolset = -1;          // Tool target temp
+int toolhead = 0;          // Tool to be monitored (assume E0 by default)
+int done = -1;             // Percentage printed
+
+// Main temp display is derived from Json values, split into the integer value and it's decimal
 int bedmain = 12;
 int bedunits = 3;
 int toolmain = 123;
 int toolunits = 4;
 
-// JSON response data: (-1 if unset/unspecified)
-int bedset = -1;   // Bed target temp
-int toolset = -1;  // Tool target temp
-int toolhead = 0;  // Tool to be monitored
-int done = -1;     // Percentage printed
-
-// Master printer status (from JSON)
-char printerstatus = "-"; // from m408 status key, '-' means unread
-int updateinterval = 1000; // how many ~1ms loops we spend looking for a response after M408
-int noreply = 1;           // count failed requests
-
-// PrintEye
-int bright = 255; // track requested brightness
-int currentbright = 0; // and what we actually have
-bool screenpower = true; // OLED on/off 
-int maxfail = 4; // max failed requests before comms fail mode (-1 to disable)
 
 //   ____       _
 //  / ___|  ___| |_ _   _ _ __
@@ -68,17 +84,25 @@ int maxfail = 4; // max failed requests before comms fail mode (-1 to disable)
 //  |____/ \___|\__|\__,_| .__/
 //                       |_|
 
-void setup(void)
+void setup()
 {
-  // First; lets drop to 8MHz since that is in-spec for a ATMega328P @ 3.3v
+  // 3.3v ATMega with 16Mhz crystal: 
+  // This is an option to avoid using level converters while still using that 
+  // 'spare' 328P+crystal you have in the parts bin..
+  // It relies on the fact that the 328P can probably boot to here OK even 
+  // though the recommended maximum clock at 3.3v is 12Mhz. This is largely 
+  // temperature/load dependent; plenty of people have done it successfully
+  // for light loads/cool conditions. But some chips are more on the edge
+  // than others (we are Overclocking, in principle) so YMMV. ;-)
+  //
+  // Drop to 8MHz since that is in-spec for a ATMega328P @ 3.3v
   // clock_prescale_set(clock_div_2);
+  // nb: If you enable this, you also need to halve the serial speed below since 
+  //     the Serial port clock is affected by this change.
 
   // Some serial is needed
   Serial.begin(57600); // DUET default is 57600,
   Serial.setTimeout(500); // give the printer max 500ms to send complete json block
-
-  // It's Jason
-
 
   // Displays
   LOLED.begin();
@@ -174,7 +198,7 @@ void screenstart()
 }
 
 void commwait()
-{
+{ // Display the 'Waiting for Comms' splash
   int preservebright = bright;
   bright = 255;
   goblank();
@@ -184,7 +208,7 @@ void commwait()
   LOLED.setCursor(2, 6);
   ROLED.setCursor(5, 6);
   LOLED.print(F(" Waiting for "));
-  ROLED.print(F("printer"));
+  ROLED.print(F("Printer"));
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
@@ -249,27 +273,28 @@ void updatedisplay()
   // Because redraws are slow and visible, the order of drawing here is deliberate
   // to ensure updates look 'smooth' to the user
 
-  // First update smaller status blocks
+  // First update lower status line
+  
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
 
   LOLED.setCursor(1, 6);
-  if (printerstatus == 'O' )      LOLED.print(F("Poweroff"));
-  else if (printerstatus == 'I' ) LOLED.print(F("        ")); // Idle
+  if (printerstatus == 'O' )      LOLED.print(F("PSU Off "));
+  else if (printerstatus == 'I' ) LOLED.print(F("        ")); // Idle.
   else if (printerstatus == 'P' ) LOLED.print(F("Printing"));
-  else if (printerstatus == 'S' ) LOLED.print(F("Stopped ")); 
-  else if (printerstatus == 'C' ) LOLED.print(F("Config  ")); 
-  else if (printerstatus == 'A' ) LOLED.print(F("Paused  ")); 
-  else if (printerstatus == 'D' ) LOLED.print(F("Pausing ")); 
-  else if (printerstatus == 'R' ) LOLED.print(F("Resuming")); 
-  else if (printerstatus == 'B' ) LOLED.print(F("Busy    ")); 
-  else if (printerstatus == 'F' ) LOLED.print(F("Updating")); 
+  else if (printerstatus == 'S' ) LOLED.print(F("Stopped "));
+  else if (printerstatus == 'C' ) LOLED.print(F("Config  "));
+  else if (printerstatus == 'A' ) LOLED.print(F("Paused  "));
+  else if (printerstatus == 'D' ) LOLED.print(F("Pausing "));
+  else if (printerstatus == 'R' ) LOLED.print(F("Resuming"));
+  else if (printerstatus == 'B' ) LOLED.print(F("Busy    "));
+  else if (printerstatus == 'F' ) LOLED.print(F("Updating"));
   else                            LOLED.print(F("Unknown "));
 
   ROLED.setCursor(0, 6);
   if ((printerstatus == 'P') || (printerstatus == 'A') || 
       (printerstatus == 'D') || (printerstatus == 'R'))
-  {
+  { // Only display progress when needed
     ROLED.print(done);
     ROLED.print(F("%  "));
   }
@@ -383,12 +408,13 @@ void updatedisplay()
 //   \___/|___/\___/|_| |_|
 
 bool m408parser()
-{ // parse a M408 result; or give an error.
-  // M408 is FLAT, no recursive sections, so we can read until we see a 
-  // closing brace '}' without breaking.
-  const int jsonSize = 450;
+{ // parse a M408 result; or set stuff, or fail.
+
+  const int jsonSize = 450; // <== Before you increase this read the important notes about 
+                            // Json buffers, StaticJsonDocument, and memory at the head of this file
   static char json[jsonSize + 1];
 
+  // nb: we assume the firmware properly terminates the JSON response with a \n here.
   int index = Serial.readBytesUntil('\n',json,jsonSize);
   json[index] = '\0'; // Null terminate the string
 
@@ -399,13 +425,17 @@ bool m408parser()
   if ( json[index-2] != '}' ) return (false);
 
   // DEBUG
+  //Serial.print(F("freeMemory pre = "));
+  //Serial.println(freeMemory());
   Serial.print(F("Json : "));
   Serial.println(json);
-  
+  Serial.print(F("Size : "));
+  Serial.println(index); // (include the null since it is in memory too)
+
   DeserializationError error = deserializeJson(responsedoc, json);
   // Test if parsing succeeded.
   if (error) {
-    // enable for debug
+    // DEBUG
     //Serial.print(F("deserializeJson() failed: "));
     //Serial.println(error.c_str());
     return(false);
@@ -419,6 +449,7 @@ bool m408parser()
   signed int tool = responsedoc[F("tool")];
   if ((tool >= 0) && (tool <= 99) && responsedoc.containsKey(F("status"))) toolhead = tool;
 
+  // Actual Heater temps
   float btemp = responsedoc[F("heaters")][0];
   if (responsedoc.containsKey(F("heaters"))) 
   {
@@ -433,6 +464,7 @@ bool m408parser()
     toolunits = (etemp - toolmain) * 10;
   }
 
+  // Active printer temp
   float bset = responsedoc[F("active")][0];
   if (responsedoc.containsKey(F("active"))) 
   {
@@ -445,12 +477,14 @@ bool m408parser()
     toolset = eset; // implicit cast to integer
   }
 
+  // Print progress (simple %done metric)
   float printed = responsedoc[F("fraction_printed")];
   if (responsedoc.containsKey(F("fraction_printed"))) 
   {
     done = printed * 100; // implicit cast to integer 
   }
 
+  // Set PrintEye Options via Json.
   float interval = responsedoc[F("printeye_interval")];
   if (responsedoc.containsKey(F("printeye_interval"))) 
   {
@@ -469,8 +503,14 @@ bool m408parser()
     bright = dim; // implicit cast to integer 
   }
 
-  // DEBUG
-  //Serial.print(F("Progmem = "));
+  float pwr = responsedoc[F("printeye_powersave")];
+  if ((pwr || !pwr) && responsedoc.containsKey(F("printeye_powersave"))) 
+  {
+    powersave = pwr; // implicit cast to boolean 
+  }
+
+ // DEBUG
+  //Serial.print(F("freeMemory post = "));
   //Serial.println(freeMemory());
 
   noreply = 0; // success; reset the fail count
@@ -531,12 +571,17 @@ void loop(void)
 
   // we now either have updated data, or a timeout..
 
-  // Sleep the screen as necesscary when firmware reports PSU off
-  if (( printerstatus == 'O') && screenpower) screensleep();
+  if ( powersave ) // handle 'standby' mode 
+  { 
+    // Sleep the screen as necesscary when firmware reports PSU off
+    if (( printerstatus == 'O') && screenpower) screensleep();
+ 
+    // Wake screen as necesscary when printer has power
+    if (( printerstatus != 'O') && !screenpower) screenwake();
+  }
 
-  // Wake screen as necesscary when printer has power
-  if (( printerstatus != 'O') && !screenpower) screenwake();
-
+  
+  
   // Update brightness level as needed (returns true if screen is on, false if blank)
   // test if we have had a response, and are powered.
   // If all above is good, update the display.
