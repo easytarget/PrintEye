@@ -1,0 +1,310 @@
+PrintEye Helpers:
+{"status":"I"}
+{"status":"O"}
+{"status":"B"}
+
+{"printeye_interval":4000,"printeye_maxfail":-1}
+{"printeye_interval":10000}
+{"printeye_maxfail":-1}
+{"printeye_maxfail":6}
+{"printeye_brightness":0}
+{"printeye_brightness":32}
+{"printeye_brightness":255}
+{"printeye_powersave":true}
+{"printeye_powersave":false}
+{"printeye_allowpause":true}
+{"printeye_allowpause":false}
+{"printeye_activityled":0}
+{"printeye_activityled":64}
+{"printeye_activityled":255}
+{"printeye_idle_left":"Sunflower","printeye_idle_right":"10.0.0.40"}
+{"printeye_idle_left":"          "}
+{"printeye_idle_right":"          "}
+
+
+logging M408 S0
+
+// Octoprinting!
+
+// Off (cooling down)
+{"status":"O","heaters":[20.9,57.1],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[0,2],"pos":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"11","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[0,0,0],"msgBox.mode":-1}
+
+
+// Power On.
+{"status":"I","heaters":[20.9,45.3],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[0,2],"pos":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"11","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[0,0,0],"msgBox.mode":-1}
+
+// Preheat bed:
+{"status":"I","heaters":[36.5,20.2],"active":[60.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,-130.000,150.000],"machine":[0.000,-130.000,150.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"2","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// Calibrating:
+{"status":"B","heaters":[60.4,20.4],"active":[60.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[130.003,-14.002,4.050],"machine":[130.003,-14.002,4.050],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// Calibrated:
+// Send: G32
+// Recv: Calibrated 8 factors using 10 points, deviation before 0.567 after 0.097
+{"status":"I","heaters":[60.1,20.6],"active":[60.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,-130.000,150.000],"machine":[0.000,-130.000,150.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"3","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+
+// Heatup:
+{"status":"I","heaters":[60.0,31.4],"active":[60.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[0.000,-130.000,150.000],"machine":[0.000,-130.000,150.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"3","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[60.0,202.6],"active":[60.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[18.983,8.723,0.300],"machine":[0.000,-130.000,0.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"539","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// Printing
+{"status":"B","heaters":[60.1,199.9],"active":[60.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[0.247,-11.675,0.300],"machine":[-5.292,-13.810,0.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"3","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[57.5,189.1],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[-2.865,-12.212,0.800],"machine":[-5.292,-5.690,0.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"470","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[55.4,194.8],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[0.230,0.618,1.050],"machine":[4.730,10.174,1.050],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"538","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[51.9,193.2],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[6.328,6.310,1.550],"machine":[5.381,12.864,1.550],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"538","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// M408 S1 while printing:
+{"status":"B","heaters":[49.8,194.8],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[8.306,3.882,2.050],"machine":[6.328,13.810,2.050],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"502","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1,"geometry":"delta","axes":3,"totalAxes":3,"axisNames":"XYZ","volumes":2,"numTools":1,"myName":"sunflower","firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet"}
+
+{"status":"B","heaters":[50.0,194.7],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[-0.600,4.712,2.800],"machine":[11.400,4.712,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"147","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[50.0,195.1],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[-12.253,9.690,10.050],"machine":[1.268,-6.250,10.550],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"3","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[50.0,194.8],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[-3.731,-3.731,15.550],"machine":[-5.292,-12.810,15.550],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[50.0,194.8],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[-4.346,-11.744,24.550],"machine":[-2.135,-11.249,24.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"3","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"B","heaters":[50.0,195.3],"active":[50.0,195.0],"standby":[0.0,195.0],"hstat":[2,2],"pos":[13.633,-12.810,34.050],"machine":[-5.292,6.310,33.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"3","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// homing:
+{"status":"B","heaters":[49.9,195.1],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[-5.097,-12.810,35.050],"machine":[-5.097,-12.810,35.550],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,0],"msgBox.mode":-1}
+
+// cooling:
+{"status":"I","heaters":[46.7,158.1],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"5","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"I","heaters":[43.3,126.2],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"5","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// powered off again
+{"status":"O","heaters":[22.4,20.8],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// ===================================================================
+// Duet Print:
+
+// off (but powered up and bed wiped..)
+{"status":"I","heaters":[21.9,20.5],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// bed heating
+{"status":"I","heaters":[27.2,20.4],"active":[55.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"5","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+{"status":"I","heaters":[48.5,20.5],"active":[55.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// Calibrated 8 factors using 10 points, deviation before 0.099 after 0.068
+{"status":"I","heaters":[55.3,20.8],"active":[55.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,-130.000,149.500],"machine":[0.000,-130.000,150.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// Printing: warmup
+
+{"status":"P","heaters":[56.9,21.3],"active":[60.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,-130.000,149.500],"machine":[0.000,-130.000,150.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.0027,"msgBox.mode":-1,"timesLeft":[0.0,0.0,0.0]}
+
+{"status":"P","heaters":[60.3,41.3],"active":[60.0,205.0],"standby":[0.0,205.0],"hstat":[2,2],"pos":[0.000,-130.000,149.500],"machine":[0.000,-130.000,150.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.0029,"msgBox.mode":-1,"timesLeft":[5359.6,0.0,0.0]}
+
+// Extruding
+{"status":"P","heaters":[60.2,210.5],"active":[60.0,205.0],"standby":[0.0,205.0],"hstat":[2,2],"pos":[13.828,6.310,0.300],"machine":[3.143,5.374,0.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"539","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.0140,"msgBox.mode":-1,"timesLeft":[6291.6,6220.6,0.0]}
+
+{"status":"P","heaters":[57.3,194.4],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[16.268,-16.250,0.800],"machine":[-5.292,-13.810,0.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.0685,"msgBox.mode":-1,"timesLeft":[6777.4,11061.5,11919.5]}
+
+{"status":"P","heaters":[50.2,200.5],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[9.135,-0.212,1.800],"machine":[6.328,13.810,1.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"539","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.1355,"msgBox.mode":-1,"timesLeft":[927.1,1874.4,6075.6]}
+
+// paused
+{"status":"A","heaters":[50.0,200.8],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[0.000,0.000,2.550],"machine":[0.000,0.000,2.550],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2027,"msgBox.mode":-1,"timesLeft":[855.7,1502.9,2741.5]}
+
+{"status":"A","heaters":[50.0,199.8],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[0.000,0.000,2.550],"machine":[0.000,0.000,2.550],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2027,"msgBox.mode":-1,"timesLeft":[855.7,1502.9,2741.5]}
+
+// resumed
+{"status":"P","heaters":[50.0,199.2],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[3.900,6.783,2.800],"machine":[2.208,6.310,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2157,"msgBox.mode":-1,"timesLeft":[826.2,1458.8,2709.2]}
+
+{"status":"P","heaters":[50.0,199.8],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[5.557,6.525,3.300],"machine":[-5.292,6.310,3.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2551,"msgBox.mode":-1,"timesLeft":[768.5,1435.8,2626.8]}
+
+{"status":"P","heaters":[46.6,206.9],"active":[0.0,200.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[-10.306,10.636,9.050],"machine":[8.635,4.749,8.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.4603,"msgBox.mode":-1,"timesLeft":[822.0,864.3,1020.5]}
+
+// octoprint disconnected to stop heater timeouts!
+{"status":"P","heaters":[41.5,199.8],"active":[0.0,200.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[-8.508,10.636,11.550],"machine":[-3.910,4.362,11.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.5293,"msgBox.mode":-1,"timesLeft":[629.4,789.4,912.4]}
+
+{"status":"P","heaters":[34.8,199.9],"active":[0.0,200.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[13.828,6.310,17.300],"machine":[-4.346,5.364,17.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.6745,"msgBox.mode":-1,"timesLeft":[500.3,566.5,647.1]}
+
+// finished
+{"status":"I","heaters":[25.4,72.0],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"7","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+//====================================================
+// power off PSU again
+
+// S0
+{"status":"O","heaters":[24.3,38.9],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"5","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
+
+// S1
+{"status":"O","heaters":[24.2,37.7],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1,"geometry":"delta","axes":3,"totalAxes":3,"axisNames":"XYZ","volumes":2,"numTools":1,"myName":"sunflower","firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet"}
+
+// S2
+{"status":"O","coords":{"axesHomed":[1,1,1],"xyz":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"extr":[3040.0]},"speeds":{"requested":0.0,"top":0.0},"currentTool":0,"params":{"atxPower":0,"fanPercent":[0,0,0,0,0,0,0,0,0],"speedFactor":100.0,"extrFactors":[100.0],"babystep":0.000},"sensors":{"probeValue":4,"fanRPM":0},"temps":{"bed":{"current":24.2,"active":0.0,"state":2,"heater":0},"current":[24.2,36.1,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0],"state":[2,2,0,0,0,0,0,0],"tools":{"active":[[0.0]],"standby":[[0.0]]},"extra":[{"name":"*DuetMCUTemp","temp":36.7},{"name":"*DuetDriversTemp","temp":0.0}]},"time":39678.0}
+
+// S3
+{"status":"O","coords":{"axesHomed":[1,1,1],"xyz":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"extr":[3040.0]},"speeds":{"requested":0.0,"top":0.0},"currentTool":0,"params":{"atxPower":0,"fanPercent":[0,0,0,0,0,0,0,0,0],"fanNames":["PartCooler","Extruder","MCU","","","","","",""],"speedFactor":100.0,"extrFactors":[100.0],"babystep":0.000},"sensors":{"probeValue":5,"fanRPM":0},"temps":{"bed":{"current":24.2,"active":0.0,"state":2,"heater":0},"current":[24.2,35.3,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0],"state":[2,2,0,0,0,0,0,0],"names":["","","","","","","",""],"tools":{"active":[[0.0]],"standby":[[0.0]]},"extra":[{"name":"*DuetMCUTemp","temp":36.2},{"name":"*DuetDriversTemp","temp":0.0}]},"time":39706.0,"coldExtrudeTemp":160.0,"coldRetractTemp":90.0,"compensation":"None","controllableFans":1,"tempLimit":320.0,"endstops":4088,"firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet","geometry":"delta","axes":3,"totalAxes":3,"axisNames":"XYZ","volumes":2,"mountedVolumes":1,"name":"sunflower","probe":{"threshold":500,"height":2.05,"type":1},"tools":[{"number":0,"heaters":[1],"drives":[0],"axisMap":[[0],[1]],"fans":1,"filament":"","offsets":[0.00,0.00,0.00]}],"mcutemp":{"min":28.7,"cur":36.2,"max":46.1},"vin":{"min":2.1,"cur":2.3,"max":25.2}}
+
+// S4
+{"status":"O","coords":{"axesHomed":[1,1,1],"xyz":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"extr":[3040.0]},"speeds":{"requested":0.0,"top":0.0},"currentTool":0,"params":{"atxPower":0,"fanPercent":[0,0,0,0,0,0,0,0,0],"speedFactor":100.0,"extrFactors":[100.0],"babystep":0.000},"sensors":{"probeValue":5,"fanRPM":0},"temps":{"bed":{"current":24.1,"active":0.0,"state":2,"heater":0},"current":[24.1,33.8,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0],"state":[2,2,0,0,0,0,0,0],"tools":{"active":[[0.0]],"standby":[[0.0]]},"extra":[{"name":"*DuetMCUTemp","temp":35.8},{"name":"*DuetDriversTemp","temp":0.0}]},"time":39754.0,"currentLayer":0,"currentLayerTime":0.0,"extrRaw":[3043.8],"fractionPrinted":0.0,"filePosition":0,"firstLayerDuration":0.0,"firstLayerHeight":0.30,"printDuration":0.0,"warmUpDuration":0.0,"timesLeft":{"file":0.0,"filament":0.0,"layer":0.0}}
+
+// S5
+{"axisMins":[-140.00,-140.00,0.00],"axisMaxes":[140.00,140.00,635.00],"accelerations":[3000.00,3000.00,3000.00,1600.00,1600.00,250.00,250.00,250.00,250.00,250.00,250.00,250.00],"currents":[1600.00,1600.00,1600.00,600.00,600.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],"firmwareElectronics":"Duet WiFi 1.02 or later","firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet","firmwareVersion":"2.02(RTOS)","dwsVersion":"1.22","firmwareDate":"2018-12-24b1","idleCurrentFactor":25.0,"idleTimeout":30.0,"minFeedrates":[6.67,6.67,6.67,6.67,6.67,2.00,2.00,2.00,2.00,2.00,2.00,2.00],"maxFeedrates":[400.00,400.00,400.00,150.00,150.00,20.00,20.00,20.00,20.00,20.00,20.00,20.00]}
+
+// fully depowered and wifi disconnected
+// disconnect wifi
+
+// S0
+{"status":"O","heaters":[23.0,24.0],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[0,0],"pos":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":-1,"probe":"7","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[0,0,0],"msgBox.mode":-1}
+
+// S1
+{"status":"O","heaters":[23.0,23.7],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[0,0],"pos":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":-1,"probe":"7","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[0,0,0],"msgBox.mode":-1,"geometry":"delta","axes":3,"totalAxes":3,"axisNames":"XYZ","volumes":2,"numTools":1,"myName":"sunflower","firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet"}
+
+// S2
+{"status":"O","coords":{"axesHomed":[0,0,0],"xyz":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"extr":[0.0]},"speeds":{"requested":0.0,"top":0.0},"currentTool":-1,"params":{"atxPower":0,"fanPercent":[0,0,0,0,0,0,0,0,0],"speedFactor":100.0,"extrFactors":[100.0],"babystep":0.000},"sensors":{"probeValue":7,"fanRPM":0},"temps":{"bed":{"current":23.0,"active":0.0,"state":0,"heater":0},"current":[23.0,23.7,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0],"state":[0,0,0,0,0,0,0,0],"tools":{"active":[[0.0]],"standby":[[0.0]]},"extra":[{"name":"*DuetMCUTemp","temp":31.6},{"name":"*DuetDriversTemp","temp":0.0}]},"time":405.0}
+
+// S3
+{"status":"O","coords":{"axesHomed":[0,0,0],"xyz":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"extr":[0.0]},"speeds":{"requested":0.0,"top":0.0},"currentTool":-1,"params":{"atxPower":0,"fanPercent":[0,0,0,0,0,0,0,0,0],"fanNames":["PartCooler","Extruder","MCU","","","","","",""],"speedFactor":100.0,"extrFactors":[100.0],"babystep":0.000},"sensors":{"probeValue":6,"fanRPM":0},"temps":{"bed":{"current":23.0,"active":0.0,"state":0,"heater":0},"current":[23.0,23.7,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0],"state":[0,0,0,0,0,0,0,0],"names":["","","","","","","",""],"tools":{"active":[[0.0]],"standby":[[0.0]]},"extra":[{"name":"*DuetMCUTemp","temp":31.5},{"name":"*DuetDriversTemp","temp":0.0}]},"time":426.0,"coldExtrudeTemp":160.0,"coldRetractTemp":90.0,"compensation":"None","controllableFans":1,"tempLimit":320.0,"endstops":4088,"firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet","geometry":"delta","axes":3,"totalAxes":3,"axisNames":"XYZ","volumes":2,"mountedVolumes":1,"name":"sunflower","probe":{"threshold":500,"height":2.05,"type":1},"tools":[{"number":0,"heaters":[1],"drives":[0],"axisMap":[[0],[1]],"fans":1,"filament":"","offsets":[0.00,0.00,0.00]}],"mcutemp":{"min":30.3,"cur":31.5,"max":32.7},"vin":{"min":1.9,"cur":2.2,"max":2.3}}
+
+// S4
+{"status":"O","coords":{"axesHomed":[0,0,0],"xyz":[0.000,0.000,635.000],"machine":[0.000,0.000,635.000],"extr":[0.0]},"speeds":{"requested":0.0,"top":0.0},"currentTool":-1,"params":{"atxPower":0,"fanPercent":[0,0,0,0,0,0,0,0,0],"speedFactor":100.0,"extrFactors":[100.0],"babystep":0.000},"sensors":{"probeValue":7,"fanRPM":0},"temps":{"bed":{"current":22.9,"active":0.0,"state":0,"heater":0},"current":[22.9,23.5,2000.0,2000.0,2000.0,2000.0,2000.0,2000.0],"state":[0,0,0,0,0,0,0,0],"tools":{"active":[[0.0]],"standby":[[0.0]]},"extra":[{"name":"*DuetMCUTemp","temp":31.5},{"name":"*DuetDriversTemp","temp":0.0}]},"time":452.0,"currentLayer":0,"currentLayerTime":0.0,"extrRaw":[0.0],"fractionPrinted":0.0,"filePosition":0,"firstLayerDuration":0.0,"firstLayerHeight":0.00,"printDuration":0.0,"warmUpDuration":0.0,"timesLeft":{"file":0.0,"filament":0.0,"layer":0.0}}
+
+// S5
+{"axisMins":[-140.00,-140.00,0.00],"axisMaxes":[140.00,140.00,635.00],"accelerations":[3000.00,3000.00,3000.00,1600.00,1600.00,250.00,250.00,250.00,250.00,250.00,250.00,250.00],"currents":[1600.00,1600.00,1600.00,600.00,600.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00],"firmwareElectronics":"Duet WiFi 1.02 or later","firmwareName":"RepRapFirmware for Duet 2 WiFi/Ethernet","firmwareVersion":"2.02(RTOS)","dwsVersion":"1.22","firmwareDate":"2018-12-24b1","idleCurrentFactor":25.0,"idleTimeout":30.0,"minFeedrates":[6.67,6.67,6.67,6.67,6.67,2.00,2.00,2.00,2.00,2.00,2.00,2.00],"maxFeedrates":[400.00,400.00,400.00,150.00,150.00,20.00,20.00,20.00,20.00,20.00,20.00,20.00]}
+
+// Diagnostics, Wifi Off
+Send: M122
+Recv: === Diagnostics ===
+Recv: RepRapFirmware for Duet 2 WiFi/Ethernet version 2.02(RTOS) running on Duet WiFi 1.02 or later
+Recv: Board ID: -------------------------------------
+Recv: Used output buffers: 1 of 20 (5 max)
+Recv: === RTOS ===
+Recv: Static ram: 25524
+Recv: Dynamic ram: 98636 of which 12 recycled
+Recv: Exception stack ram used: 256
+Recv: Never used ram: 6644
+Recv: Tasks: NETWORK(ready,1120) HEAT(blocked,1232) MAIN(running,3868) IDLE(ready,200)
+Recv: Owned mutexes:
+Recv: === Platform ===
+Recv: Last reset 00:10:28 ago, cause: power up
+Recv: Last software reset at 2019-03-04 01:03, reason: User, spinning module GCodes, available RAM 6320 bytes (slot 0)
+Recv: Software reset code 0x0003 HFSR 0x00000000 CFSR 0x00000000 ICSR 0x0441f000 BFAR 0xe000ed38 SP 0xffffffff Task 0x4e49414d
+Recv: Error status: 0
+Recv: Free file entries: 9
+Recv: SD card 0 detected, interface speed: 20.0MBytes/sec
+Recv: SD card longest block write time: 6.6ms, max retries 0
+Recv: MCU temperature: min 30.3, current 31.2, max 32.7
+Recv: Supply voltage: min 1.9, current 2.2, max 2.3, under voltage events: 0, over voltage events: 0, power good: no
+Recv: Driver 0: ok, SG min/max not available
+Recv: Driver 1: ok, SG min/max not available
+Recv: Driver 2: ok, SG min/max not available
+Recv: Driver 3: ok, SG min/max not available
+Recv: Driver 4: ok, SG min/max not available
+Recv: Date/time: 1970-01-01 00:00:00
+Recv: Cache data hit count 1450405648
+Recv: Slowest loop: 12.17ms; fastest: 0.06ms
+Recv: I2C nak errors 0, send timeouts 0, receive timeouts 0, finishTimeouts 0
+Recv: === Move ===
+Recv: Hiccups: 0, StepErrors: 0, LaErrors: 0, FreeDm: 240, MinFreeDm: 240, MaxWait: 0ms, Underruns: 0, 0
+Recv: Scheduled moves: 0, completed moves: 0
+Recv: Bed compensation in use: none
+Recv: Bed probe heights: 0.000 0.000 0.000 0.000 0.000
+Recv: === Heat ===
+Recv: Bed heaters = 0 -1 -1 -1, chamberHeaters = -1 -1
+Recv: === GCodes ===
+Recv: Segments left: 0
+Recv: Stack records: 1 allocated, 0 in use
+Recv: Movement lock held by null
+Recv: http is idle in state(s) 0
+Recv: telnet is idle in state(s) 0
+Recv: file is idle in state(s) 0
+Recv: serial is ready with "M122" in state(s) 0
+Recv: aux is idle in state(s) 0
+Recv: daemon is idle in state(s) 0
+Recv: queue is idle in state(s) 0
+Recv: autopause is idle in state(s) 0
+Recv: Code queue is empty.
+Recv: === Network ===
+Recv: Slowest loop: 60.86ms; fastest: 0.00ms
+Recv: Responder states: HTTP(0) HTTP(0) HTTP(0) HTTP(0) FTP(0) Telnet(0) Telnet(0)
+Recv: HTTP sessions: 0 of 8
+Recv: - WiFi -
+Recv: Network state is running
+Recv: WiFi module is idle
+Recv: Failed messages: pending 0, notready 0, noresp 0
+Recv: WiFi firmware version 1.22
+Recv: WiFi MAC address ----------------------
+Recv: WiFi Vcc 3.41, reset reason Turned on by main processor
+Recv: WiFi flash size 4194304, free heap 30512
+Recv: Socket states: 0 0 0 0 0 0 0 0
+Recv: ok
+
+// Diagnostic wifi on
+Send: M122
+Recv: === Diagnostics ===
+Recv: RepRapFirmware for Duet 2 WiFi/Ethernet version 2.02(RTOS) running on Duet WiFi 1.02 or later
+Recv: Board ID: -----------------------------------------------
+Recv: Used output buffers: 1 of 20 (10 max)
+Recv: === RTOS ===
+Recv: Static ram: 25524
+Recv: Dynamic ram: 98680 of which 12 recycled
+Recv: Exception stack ram used: 256
+Recv: Never used ram: 6600
+Recv: Tasks: NETWORK(ready,1120) HEAT(blocked,1232) MAIN(running,3860) IDLE(ready,200)
+Recv: Owned mutexes:
+Recv: === Platform ===
+Recv: Last reset 00:13:02 ago, cause: power up
+Recv: Last software reset at 2019-03-04 01:03, reason: User, spinning module GCodes, available RAM 6320 bytes (slot 0)
+Recv: Software reset code 0x0003 HFSR 0x00000000 CFSR 0x00000000 ICSR 0x0441f000 BFAR 0xe000ed38 SP 0xffffffff Task 0x4e49414d
+Recv: Error status: 0
+Recv: Free file entries: 9
+Recv: SD card 0 detected, interface speed: 20.0MBytes/sec
+Recv: SD card longest block write time: 1.1ms, max retries 0
+Recv: MCU temperature: min 30.5, current 30.6, max 31.3
+Recv: Supply voltage: min 2.2, current 2.2, max 2.3, under voltage events: 0, over voltage events: 0, power good: no
+Recv: Driver 0: ok, SG min/max not available
+Recv: Driver 1: ok, SG min/max not available
+Recv: Driver 2: ok, SG min/max not available
+Recv: Driver 3: ok, SG min/max not available
+Recv: Driver 4: ok, SG min/max not available
+Recv: Date/time: 1970-01-01 00:00:00
+Recv: Cache data hit count 1809301562
+Recv: Slowest loop: 12.35ms; fastest: 0.06ms
+Recv: I2C nak errors 0, send timeouts 0, receive timeouts 0, finishTimeouts 0
+Recv: === Move ===
+Recv: Hiccups: 0, StepErrors: 0, LaErrors: 0, FreeDm: 240, MinFreeDm: 240, MaxWait: 0ms, Underruns: 0, 0
+Recv: Scheduled moves: 0, completed moves: 0
+Recv: Bed compensation in use: none
+Recv: Bed probe heights: 0.000 0.000 0.000 0.000 0.000
+Recv: === Heat ===
+Recv: Bed heaters = 0 -1 -1 -1, chamberHeaters = -1 -1
+Recv: === GCodes ===
+Recv: Segments left: 0
+Recv: Stack records: 1 allocated, 0 in use
+Recv: Movement lock held by null
+Recv: http is idle in state(s) 0
+Recv: telnet is idle in state(s) 0
+Recv: file is idle in state(s) 0
+Recv: serial is ready with "M122" in state(s) 0
+Recv: aux is idle in state(s) 0
+Recv: daemon is idle in state(s) 0
+Recv: queue is idle in state(s) 0
+Recv: autopause is idle in state(s) 0
+Recv: Code queue is empty.
+Recv: === Network ===
+Recv: Slowest loop: 62.20ms; fastest: 0.00ms
+Recv: Responder states: HTTP(0) HTTP(0) HTTP(0) HTTP(0) FTP(0) Telnet(0) Telnet(0)
+Recv: HTTP sessions: 0 of 8
+Recv: - WiFi -
+Recv: Network state is running
+Recv: WiFi module is connected to access point
+Recv: Failed messages: pending 0, notready 0, noresp 0
+Recv: WiFi firmware version 1.22
+Recv: WiFi MAC address ---------------------------
+Recv: WiFi Vcc 3.41, reset reason Turned on by main processor
+Recv: WiFi flash size 4194304, free heap 27368
+Recv: WiFi IP address 10.0.0.30
+Recv: WiFi signal strength -52dBm, reconnections 0, sleep mode modem
+Recv: Socket states: 0 0 0 0 0 0 0 0
+Recv: ok
+
