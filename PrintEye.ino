@@ -445,20 +445,24 @@ bool m408parser()
   //Serial.print(F("Size : "));
   //Serial.println(index); // (include the null since it is in memory too)
 
+  // blink
   digitalWrite(LED, activityled);
-
-  DeserializationError error = deserializeJson(responsedoc, json);
   
-  digitalWrite(LED, 0);
+  // We have something beginning in '{'; lets parse and process if valid
+  DeserializationError error = deserializeJson(responsedoc, json);
 
   // Test if parsing succeeded.
   if (error) {
     // DEBUG
     //Serial.print(F("deserializeJson() failed: "));
     //Serial.println(error.c_str());
+    digitalWrite(LED, 0);
     return(false);
   }
 
+  // We appear to have valid Json; process it
+
+  
   // Printer status
   char* setstatus =  responsedoc[F("status")];
   if (responsedoc.containsKey(F("status"))) 
@@ -569,13 +573,15 @@ bool m408parser()
   {
     activityled = ledcontrol; // implicit cast to byte 
   }
- 
- // DEBUG
+
+  // DEBUG
   //Serial.print(F("freeMemory post = "));
   //Serial.println(freeMemory());
 
-  // Successful Json decode!
-  // Clear the screens if waiting for printer message is displayed
+  // Finished processing
+  digitalWrite(LED, 0);
+
+  // Clear the screens if 'Waiting for Printer' message is currently being displayed
   if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
   
   return(true);

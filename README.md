@@ -10,6 +10,7 @@
 * Also responds to some 'config' Json
  * timeout, update speed, brightness, and how to respect PSU control
 * Sleep mode when controller reports status 'O' (PSU off, configurable)
+* Activity LED that blinks on incoming data
 
 ## Requirements 
 * ArduinoJSON (via IDE library manager or directly from <URL!!>
@@ -32,6 +33,8 @@ The ArduinoJSON library is used, which provides some robustness in processing ke
  * Brightness level (0-255) for the activity LED, set to 0 to disable
 * {"printeye_idle_left":<string>} & {"printeye_idle_right":<string>}
  * Left and right panel text to be displayed in Idle mode, max 10 characters
+
+![Prototype](./images/printeye-prototype-1.jpg)
 
 ## Caveats:
 * S/W I2C is slow. Alternative (one HW + One SW) looks weird and unbalanced.
