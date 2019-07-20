@@ -41,12 +41,13 @@ The ArduinoJSON library is used, which provides some robustness in processing ke
  * A I2C multiplexer would solve this, or using a chip (Mega256?) with dual hardware I2C
  * I have tried to compensate for the slow redrawing by sequencing the order of updating screen elements; eg making the updates look more like animations.
 * The Json parser uses quite a bit of ram and cannot survive a sudden increase in size of M408 S0 responses (eg from a firmware update), currently they max out at 400 characters or so, and I allow a maximum of 450 bytes for Data +overhead.
-* You will need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with the underclock option discussed in the `setup()` section of the sketch. Display updates will be even slower for this, and you might need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
+* You will need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with 16Mhz/3.3v and the underclock option discussed in the `setup()` section of the sketch. Display updates will be even slower for this, and you might need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
 
 ## Enhancements: 
-* EEPROM for settings`    
 * Pause button
 * Active vs Standby; switch which is shown
 * Heater Errors: Show, icon and put 'Error' in the status line.
+### For Later
+* EEPROM for settings
 * Find a lower memory footprint Json parser?
 * Investigate wether it is possible to multiplex the HW I2C bus (SCK) with IO pins and a couple of signal diodes to address one display or the other, or both for setup, clearing etc.

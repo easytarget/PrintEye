@@ -598,7 +598,7 @@ bool m408parser()
 void loop(void)
 {
   // Begin with the data request to the RepRap controller
-  // P0 is the most basic info request, but has all the data we use
+  // M408 S0 is the most basic info request, but has all the data we use
   Serial.println(F("M408 S0"));
 
   // This is the 'MAIN' loop where we spend most of our time waiting for
