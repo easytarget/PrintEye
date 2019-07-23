@@ -1,9 +1,20 @@
+A good start when debugging/testing:
+{"printeye_interval":4000,"printeye_maxfail":-1}
+
 PrintEye Helpers:
 {"status":"I"}
 {"status":"O"}
 {"status":"B"}
 
-{"printeye_interval":4000,"printeye_maxfail":-1}
+defaults: 
+    interval:1000
+     maxfail:6
+   powersave:true
+  brightness:255
+  allowpause:true
+ activityled:128
+   idle_text:" Idle     ","          "
+
 {"printeye_interval":10000}
 {"printeye_maxfail":-1}
 {"printeye_maxfail":6}
@@ -118,20 +129,25 @@ logging M408 S0
 // resumed
 {"status":"P","heaters":[50.0,199.2],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[3.900,6.783,2.800],"machine":[2.208,6.310,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2157,"msgBox.mode":-1,"timesLeft":[826.2,1458.8,2709.2]}
 
+// Lets make like we have two extruders and have switched to E1
+{"status":"P","heaters":[50.0,199.2,240.3],"active":[50.0,200.0,240],"standby":[0.0,200.0,240],"hstat":[2,2,2],"pos":[3.900,6.783,2.800],"machine":[2.208,6.310,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":1,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2157,"msgBox.mode":-1,"timesLeft":[826.2,1458.8,2709.2]}
+
+/// Ok, three
+{"status":"P","heaters":[50.0,199.2,240.3,399.9],"active":[50.0,200.0,240,400],"standby":[0.0,200.0,240,300],"hstat":[2,2,2,2],"pos":[3.900,6.783,2.800],"machine":[2.208,6.310,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":2,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2157,"msgBox.mode":-1,"timesLeft":[826.2,1458.8,2709.2]}
+
+// Four?
+{"status":"P","heaters":[111.7,199.2,240.3,34.0,123.4],"active":[110.0,200.0,240.0,0,125.0],"standby":[0.0,200.0.240,0.0,220.0],"hstat":[2,2,2,2,2],"pos":[3.900,6.783,2.800],"machine":[2.208,6.310,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":3,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2157,"msgBox.mode":-1,"timesLeft":[826.2,1458.8,2709.2]}
+
+/ Lets make like we have two extruders and have switched back to E0
+{"status":"P","heaters":[50.0,199.2,240.3],"active":[50.0,200.0,240],"standby":[0.0,200.0,240],"hstat":[2,2,2],"pos":[3.900,6.783,2.800],"machine":[2.208,6.310,2.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"467","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2157,"msgBox.mode":-1,"timesLeft":[826.2,1458.8,2709.2]}
+
 {"status":"P","heaters":[50.0,199.8],"active":[50.0,200.0],"standby":[0.0,200.0],"hstat":[2,2],"pos":[5.557,6.525,3.300],"machine":[-5.292,6.310,3.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2551,"msgBox.mode":-1,"timesLeft":[768.5,1435.8,2626.8]}
-
-{"status":"P","heaters":[46.6,206.9],"active":[0.0,200.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[-10.306,10.636,9.050],"machine":[8.635,4.749,8.800],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.4603,"msgBox.mode":-1,"timesLeft":[822.0,864.3,1020.5]}
-
-// octoprint disconnected to stop heater timeouts!
-{"status":"P","heaters":[41.5,199.8],"active":[0.0,200.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[-8.508,10.636,11.550],"machine":[-3.910,4.362,11.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.5293,"msgBox.mode":-1,"timesLeft":[629.4,789.4,912.4]}
-
-{"status":"P","heaters":[34.8,199.9],"active":[0.0,200.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[13.828,6.310,17.300],"machine":[-4.346,5.364,17.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.6745,"msgBox.mode":-1,"timesLeft":[500.3,566.5,647.1]}
 
 // finished
 {"status":"I","heaters":[25.4,72.0],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"7","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
 
 //====================================================
-// power off PSU again
+// power off PSU
 
 // S0
 {"status":"O","heaters":[24.3,38.9],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.835],"machine":[0.000,0.000,630.335],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"5","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}

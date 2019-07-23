@@ -22,11 +22,15 @@
 //#include <avr/power.h>
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <U8x8lib.h>
+#include "jsmn.h"
+
+// During debug I enable the following to dump out the free memory during runtime.
+// Taken from https://playground.arduino.cc/Code/AvailableMemory/
+#include "MemoryFree.h" 
 
 // Pinout
-#define LED 13      // DEBUG: led on trinket
+#define LED 13      // DEBUG: led on trinket, non pwm.
 //#define LED 9      // pwm capable port
 #define BUTTON 10  // pause button(s)
 #define DEBOUNCE 30 // debounce+fatfinger delay for button  // Test if parsing succeeded.
@@ -59,11 +63,11 @@ bool powersave = true;         // Go into powersave when controller reports PSU 
 byte bright = 255;             // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
 bool allowpause = true;        // Allow the button to trigger a pause event
 byte activityled = 128;        // Activity LED brightness (0 to disable)
-char ltext[11] = " Idle     "; // Left status line for the idle display
-char rtext[11] = "          "; // Right status line for the idle display
+char ltext[11] = " Idle     "; // Left status line for the idle display (max 10 chars)
+char rtext[11] = "          "; // Right status line for the idle display (max 10 chars)
 
 // PrintEye
-int noreply = 1;           // count failed requests (default: assume we have missed some replies)
+int noreply = 1;           // count failed requests (default: assume we have already missed some)
 int currentbright = 0;     // track changes to brightness
 bool screenpower = true;   // OLED power status
 
@@ -79,21 +83,6 @@ int bedmain = 0;
 int bedunits = 0;
 int toolmain = 0;
 int toolunits = 0;
-
-
-
-// Ohshit, It's Jason.
-// I allow ~450 chars for the incoming Json stream. Currently I see max. 400 chars in the M408 S0
-// Json response, this may change in the future but be very wary of increasing the buffer sizes;
-// increasing these increases lowers stack/heap space and increases the chance of a memory error 
-// while the response is being parsed.
-StaticJsonDocument<450> responsedoc; // <== increase this at your peril.
-                                     // You must also increase 'jsonSize' in m408parser()
-
-// If you increase the above you can enable the following to dump out the free memory during runtime.
-// Some example dumps are in the comments, search for 'DEBUG'
-//#include "tools/MemoryFree.h" 
-//Taken from https://playground.arduino.cc/Code/AvailableMemory/
 
 //   ____       _
 //  / ___|  ___| |_ _   _ _ __
@@ -126,12 +115,16 @@ void setup()
   pinMode(LED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
 
+  // Does not speed up software I2C..
+  //LOLED.setBusClock(400000);
+  //ROLED.setBusClock(400000);
+
   // Displays
   LOLED.begin();
-  LOLED.setContrast(0); // blank asap, screenbuffer often full of crud
+  LOLED.setContrast(0); // blank asap, screenbuffer may be full of crud
   LOLED.setFlipMode(1);
   ROLED.begin();
-  ROLED.setContrast(0); // blank asap, screenbuffer often full of crud
+  ROLED.setContrast(0); // blank asap, screenbuffer may be full of crud
   ROLED.setFlipMode(1);
   goblank();
 
@@ -182,8 +175,11 @@ void screensleep()
   screenpower = false;
 }
 
+
+// Take the screen out of powersave and flash the power on icon
+
 void screenwake()
-{ // Take the screen out of powersave and flash the power on icon
+{
   goblank();
   LOLED.setPowerSave(false);
   ROLED.setPowerSave(false);
@@ -201,8 +197,11 @@ void screenwake()
   noreply = 0;
 }
 
+
+// start the screen for the first time (splashscreen..)
+
 void screenstart()
-{ // start the screen for the first time (splashscreen..)
+{
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
@@ -218,8 +217,10 @@ void screenstart()
   unblank();
 }
 
+// Display the 'Waiting for Comms' splash
+
 void commwait()
-{ // Display the 'Waiting for Comms' splash
+{
   int preservebright = bright;
   if (bright == 0) bright = 1; // show 'waiting' even if 'blank'
   goblank();
@@ -242,13 +243,14 @@ void commwait()
   ROLED.setPowerSave(false);
   unblank();
   
-  delay(333); // a brief pause while animation is displayed
   bright = preservebright;
 }
 
-bool setbrightness()
-{ // Set the non-linear contrast/brightness level (if supported)
 
+// Set the non-linear contrast/brightness level (if supported by display)
+
+bool setbrightness()
+{ 
   // Only update brightness when level has been changed
   // (setContrast can cause a screen flicker when called).
   
@@ -289,8 +291,9 @@ void updatedisplay()
 
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
-  
-  if (printerstatus == 'O' )      LOLED.print(F(" PSU Off "));
+
+  // Max 10 chars for a status string
+  if (printerstatus == 'O' )      LOLED.print(F(" Standby  "));
   else if (printerstatus == 'I' ) {LOLED.print(ltext); ROLED.print(rtext);}
   else if (printerstatus == 'P' ) LOLED.print(F(" Printing "));
   else if (printerstatus == 'S' ) LOLED.print(F(" Stopped  "));
@@ -324,12 +327,11 @@ void updatedisplay()
   else
   { // Show target temp
     LOLED.setCursor(10, 6);
+    LOLED.print(F("  "));
     if ( bedset < 100 ) LOLED.print(" ");
     if ( bedset < 10 ) LOLED.print(" ");
-    LOLED.print(F("["));
     LOLED.print(bedset);
     LOLED.print(char(176)); // degrees symbol
-    LOLED.print(F("]"));
   }
 
   if ((toolset <= 0 ) || ( toolset > 999))
@@ -340,12 +342,11 @@ void updatedisplay()
   else
   { // Show target temp
     ROLED.setCursor(10, 6);
+    ROLED.print(F("  "));
     if ( toolset < 100 ) ROLED.print(F(" "));
     if ( toolset < 10 ) ROLED.print(F(" "));
-    ROLED.print(F("["));
     ROLED.print(toolset);
     ROLED.print(char(176)); // degrees symbol
-    ROLED.print(F("]"));
   }
 
   // bed and head text
@@ -391,6 +392,7 @@ void updatedisplay()
   if ( bedmain < 10 ) LOLED.print(F(" "));
   LOLED.print(bedmain);
 
+  //LOLED.setFont(u8x8_font_8x13B_1x2_f);
   LOLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   LOLED.setCursor(9, 3);
   LOLED.print(F("."));
@@ -404,7 +406,8 @@ void updatedisplay()
   if ( toolmain < 10 ) ROLED.print(F(" "));
   ROLED.print(toolmain);
 
-  ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
+  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+  //ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   ROLED.setCursor(9, 3);
   ROLED.print(F("."));
   ROLED.print(toolunits);
@@ -423,160 +426,197 @@ void updatedisplay()
 bool m408parser()
 { // parse a M408 result; or set stuff, or fail.
 
-  const int jsonSize = 450; // <== Before you increase this read the important notes about 
-                            // Json buffers, StaticJsonDocument, and memory at the head of this file
+  // Incoming data
+  const int jsonSize = 512; // Maximum size of a M408 response we can process.
   static char json[jsonSize + 1];
 
-  // nb: we assume the firmware properly terminates the JSON response with a \n here.
+  // Json
+  const int maxtokens = 80; // Max number of distinct objects and values in the json (see jsmn docs)
+  jsmn_parser jparser;
+  static jsmntok_t jtokens[maxtokens];
+  jsmn_init(&jparser);
+
+  // We assume the firmware terminates the JSON response with a \n and no padding (eg.Duet/RRf).
+  
   int index = Serial.readBytesUntil('\n',json,jsonSize);
   json[index] = '\0'; // Null terminate the string
 
   // return false if nothing arrived
   if ( index == 0 ) return (false);
   
+  // return false if not initiated properly.
+  if ( json[0] != '{' ) return (false);
+
   // return false if not terminated properly.
   if ( json[index-2] != '}' ) return (false);
 
   // DEBUG
-  //Serial.print(F("freeMemory pre = "));
-  //Serial.println(freeMemory());
+  Serial.print(F("freeMemory pre = "));
+  Serial.println(freeMemory());
   //Serial.print(F("Json : "));
   //Serial.println(json);
-  //Serial.print(F("Size : "));
-  //Serial.println(index); // (include the null since it is in memory too)
+  Serial.print(F("Size : "));
+  Serial.println(index); // (include the null since it is in memory too)
 
-  // blink
+  // blink 
   digitalWrite(LED, activityled);
-  
-  // We have something beginning in '{'; lets parse and process if valid
-  DeserializationError error = deserializeJson(responsedoc, json);
 
-  // Test if parsing succeeded.
-  if (error) {
-    // DEBUG
-    //Serial.print(F("deserializeJson() failed: "));
-    //Serial.println(error.c_str());
-    digitalWrite(LED, 0);
+  // We have something that may be Json; process it for any keys we need.
+
+  Serial.print("Running Processor On: ");
+  for (int i=0;i<index;i++) Serial.print(json[i]);
+  Serial.println();
+
+  int parsed = jsmn_parse(&jparser, json, index+1, jtokens, maxtokens);
+
+  Serial.print("Parser Return = ");
+  Serial.println(parsed);
+
+  
+  if (parsed < 1 || jtokens[0].type != JSMN_OBJECT) 
+  {
+    Serial.println("Not a Json Object");
     return(false);
   }
 
-  // We appear to have valid Json; process it
 
   
-  // Printer status
-  char* setstatus =  responsedoc[F("status")];
-  if (responsedoc.containsKey(F("status"))) 
+  if (parsed == 1)
   {
-    if ((printerstatus == 'I') && (setstatus[0] != 'I'))
-    { // we are leaving Idle mode, clear idletext
-      LOLED.clearLine(6);LOLED.clearLine(7);
-      ROLED.clearLine(6);ROLED.clearLine(7);
-    }
-    printerstatus = setstatus[0];
+    Serial.println("Empty Json Object");
+    return(false);
   }
+
+  for (int i = 1; i < parsed; i++) 
+  {
+    Serial.print(i);
+    Serial.print(" : ");
+    Serial.print(jtokens[i].type);
+    Serial.print(" : ");
+    Serial.print(jtokens[i].size);
+    Serial.print(" : ");
+    size_t result_len = jtokens[i].end-jtokens[i].start;
+    char result[result_len+1];
+    memcpy(result,json + jtokens[i].start,result_len);
+    result[result_len] = 0;
+    Serial.println(result);
+    delay(10); // slow o/p down, my serial monitor glitches otherwise..
+  }
+
+  // Printer status
+  //char* setstatus =  responsedoc[F("status")];
+  //if (responsedoc.containsKey(F("status"))) 
+  //{
+  //  if ((printerstatus == 'I') && (setstatus[0] != 'I'))
+  //  { // we are leaving Idle mode, clear idletext
+  //    LOLED.clearLine(6);LOLED.clearLine(7);
+  //    ROLED.clearLine(6);ROLED.clearLine(7);
+  //  }
+  //  printerstatus = setstatus[0];
+  //}
 
   // Current Tool
-  signed int tool = responsedoc[F("tool")];
-  if ((tool >= 0) && (tool <= 99) && responsedoc.containsKey(F("status"))) toolhead = tool;
+  //signed int tool = responsedoc[F("tool")];
+  //if ((tool >= 0) && (tool <= 99) && responsedoc.containsKey(F("status"))) toolhead = tool;
 
   // Actual Heater temps
-  float btemp = responsedoc[F("heaters")][0];
-  if (responsedoc.containsKey(F("heaters"))) 
-  {
-    bedmain = btemp; // implicit cast to integer
-    bedunits = (btemp - bedmain) * 10;
-  }
+  //float btemp = responsedoc[F("heaters")][0];
+  //if (responsedoc.containsKey(F("heaters"))) 
+  //{
+  //  bedmain = btemp; // implicit cast to integer
+  //  bedunits = (btemp - bedmain) * 10;
+  //}
   
-  float etemp = responsedoc[F("heaters")][toolhead+1];
-  if (responsedoc.containsKey(F("heaters"))) 
-  {
-    toolmain = etemp; // implicit cast to integer
-    toolunits = (etemp - toolmain) * 10;
-  }
+  //float etemp = responsedoc[F("heaters")][toolhead+1];
+  //if (responsedoc.containsKey(F("heaters"))) 
+  //{
+  //  toolmain = etemp; // implicit cast to integer
+  //  toolunits = (etemp - toolmain) * 10;
+  //}
 
   // Active printer temp
-  float bset = responsedoc[F("active")][0];
-  if (responsedoc.containsKey(F("active"))) 
-  {
-    bedset = bset; // implicit cast to integer
-  }
+  //float bset = responsedoc[F("active")][0];
+  //if (responsedoc.containsKey(F("active"))) 
+  //{
+  //  bedset = bset; // implicit cast to integer
+  //}
   
-  float eset = responsedoc[F("active")][toolhead+1];
-  if (responsedoc.containsKey(F("active"))) 
-  {
-    toolset = eset; // implicit cast to integer
-  }
+  //float eset = responsedoc[F("active")][toolhead+1];
+  //if (responsedoc.containsKey(F("active"))) 
+  //{
+  //  toolset = eset; // implicit cast to integer
+  //}
 
   // Print progress (simple %done metric)
-  float printed = responsedoc[F("fraction_printed")];
-  if (responsedoc.containsKey(F("fraction_printed"))) 
-  {
-    done = printed * 100; // implicit cast to integer 
-  }
+  //float printed = responsedoc[F("fraction_printed")];
+  //if (responsedoc.containsKey(F("fraction_printed"))) 
+  //{
+  //  done = printed * 100; // implicit cast to integer 
+  //}
 
   // Set PrintEye Options via Json.
-  float interval = responsedoc[F("printeye_interval")];
-  if (responsedoc.containsKey(F("printeye_interval"))) 
-  {
-    updateinterval = interval; // implicit cast to integer 
-  }
+  //float interval = responsedoc[F("printeye_interval")];
+  //if (responsedoc.containsKey(F("printeye_interval"))) 
+  //{
+  //  updateinterval = interval; // implicit cast to integer 
+  //}
 
-  float fails = responsedoc[F("printeye_maxfail")];
-  if (responsedoc.containsKey(F("printeye_maxfail"))) 
-  {
-    if (fails == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
-    maxfail = fails; // implicit cast to integer 
-  }
+  //float fails = responsedoc[F("printeye_maxfail")];
+  //if (responsedoc.containsKey(F("printeye_maxfail"))) 
+  //{
+  //  if (fails == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
+  //  maxfail = fails; // implicit cast to integer 
+  //}
 
-  float dim = responsedoc[F("printeye_brightness")];
-  if ((dim >= 0) && (dim <= 255) && responsedoc.containsKey(F("printeye_brightness"))) 
-  {
-    bright = dim; // implicit cast to integer 
-  }
+  //float dim = responsedoc[F("printeye_brightness")];
+  //if ((dim >= 0) && (dim <= 255) && responsedoc.containsKey(F("printeye_brightness"))) 
+  //{
+  //  bright = dim; // implicit cast to integer 
+  //}
 
-  float pwr = responsedoc[F("printeye_powersave")];
-  if (responsedoc.containsKey(F("printeye_powersave")))
-  {
-    powersave = pwr; // implicit cast to boolean 
-  }
+  //float pwr = responsedoc[F("printeye_powersave")];
+  //if (responsedoc.containsKey(F("printeye_powersave")))
+  //{
+  //  powersave = pwr; // implicit cast to boolean 
+  //}
 
-  char* left = responsedoc[F("printeye_idle_left")];
-  if (responsedoc.containsKey(F("printeye_idle_left")))
-  {
-    byte s = strlen(left);
-    for ( byte a = 0; a < 10; a++ ) 
-    {
-      if (a < s) ltext[a] = left[a]; else ltext[a] = ' ';
-    }
-    ltext[10]='\0'; // ensure terminated to avoid overruns when printing
-  }
+  //char* left = responsedoc[F("printeye_idle_left")];
+  //if (responsedoc.containsKey(F("printeye_idle_left")))
+  //{
+  //  byte s = strlen(left);
+  //  for ( byte a = 0; a < 10; a++ ) 
+  //  {
+  //    if (a < s) ltext[a] = left[a]; else ltext[a] = ' ';
+  //  }
+  //  ltext[10]='\0'; // ensure terminated to avoid overruns when printing
+  //}
 
-  char* right = responsedoc[F("printeye_idle_right")];
-  if (responsedoc.containsKey(F("printeye_idle_right")))
-  {
-    byte s = strlen(right);
-    for ( byte a = 0; a < 10; a++ ) 
-    {
-      if (a < s) rtext[a] = right[a]; else rtext[a] = ' ';
-    }
-    rtext[10]='\0'; // ensure terminated to avoid overruns when printing
-  }
+  //char* right = responsedoc[F("printeye_idle_right")];
+  //if (responsedoc.containsKey(F("printeye_idle_right")))
+  //{
+  //  byte s = strlen(right);
+  //  for ( byte a = 0; a < 10; a++ ) 
+  //  {
+  //    if (a < s) rtext[a] = right[a]; else rtext[a] = ' ';
+  //  }
+  //  rtext[10]='\0'; // ensure terminated to avoid overruns when printing
+  //}
 
-  float pausecontrol = responsedoc[F("printeye_allowpause")];
-  if (responsedoc.containsKey(F("printeye_allowpause")))
-  {
-    allowpause = pausecontrol; // implicit cast to boolean 
-  }
+  //float pausecontrol = responsedoc[F("printeye_allowpause")];
+  //if (responsedoc.containsKey(F("printeye_allowpause")))
+  //{
+  //  allowpause = pausecontrol; // implicit cast to boolean 
+  //}
 
-  float ledcontrol = responsedoc[F("printeye_activityled")];
-  if (responsedoc.containsKey(F("printeye_activityled")))
-  {
-    activityled = ledcontrol; // implicit cast to byte 
-  }
-
+  //float ledcontrol = responsedoc[F("printeye_activityled")];
+  //if (responsedoc.containsKey(F("printeye_activityled")))
+  //{
+  //  activityled = ledcontrol; // implicit cast to byte 
+  //}
+  
   // DEBUG
-  //Serial.print(F("freeMemory post = "));
-  //Serial.println(freeMemory());
+  Serial.print(F("freeMemory post = "));
+  Serial.println(freeMemory());
 
   // Finished processing
   digitalWrite(LED, 0);
@@ -603,11 +643,13 @@ void loop(void)
 
   // This is the 'MAIN' loop where we spend most of our time waiting for
   // serial responses having sent the M408 request.
+  
   for ( int counter = 0 ; counter < updateinterval ; counter++ )
   {
+    // Anything in the serial buffer?
     if ( Serial.available() )
     {
-      // We have something; peek at it and decide what to do, does it look like a Json line?
+      // We have something; peek at it and decide what to do, does it look like incoming Json?
       if (Serial.peek() == '{')
       { // It might be Json; read and parse it
         if (m408parser()) noreply = 0; // success; reset the fail count
@@ -626,19 +668,21 @@ void loop(void)
 
   // we now either have updated data, or a timeout..
 
-  if ( powersave ) // handle 'standby' mode 
+  if ( powersave ) // handle powersave mode, if enabled
   { 
-    // Sleep the screen as necesscary when firmware reports PSU off
+    // Sleep the screen when firmware reports PSU off
     if (( printerstatus == 'O') && screenpower) screensleep();
  
-    // Wake screen as necesscary when printer has power
+    // Wake screen when printer regains power
     if (( printerstatus != 'O') && !screenpower) screenwake();
   }
 
-  // Update Screen! .. but first update brightness level as needed (returns true 
-  // if screen is on, false if blank) and then test if we have had a response
-  // during this cycle, and whether we are in standby mode
-  // If all above is good, update the display.
+  // Update Screen 
+  //.. but first update brightness level as needed (returns true 
+  // if screen is on, false if blank) 
+  // Then test if we have had a response during this requestcycle, 
+  // Determine whether we are in standby mode
+  // update the display if needed
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
   // we always assume the next request will fail, m408paser() resets the count on success
