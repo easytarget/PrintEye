@@ -17,7 +17,7 @@
 // https://duet3d.dozuki.com/Wiki/Gcode#Section_M118_Send_Message_to_Specific_Target
 // https://reprap.org/forum/read.php?416,830988
 
-// Maybe use for a 3.3v arduino with a 16Mhz cristal, note; affects serial baud rate..
+// Maybe use for a 3.3v arduino with a 16Mhz cristal. Nb; affects serial baud rate..
 // power&clock divider lib: https://arduino.stackexchange.com/a/5414
 //#include <avr/power.h>
 
@@ -27,13 +27,13 @@
 
 // During debug I enable the following to dump out the free memory during runtime.
 // Taken from https://playground.arduino.cc/Code/AvailableMemory/
-#include "MemoryFree.h" 
+//#include "MemoryFree.h" 
 
 // Pinout
 #define LED 13      // DEBUG: led on trinket, non pwm.
-//#define LED 9      // pwm capable port
+//#define LED 9      // pwm capable alternative for LED
 #define BUTTON 10  // pause button(s)
-#define DEBOUNCE 30 // debounce+fatfinger delay for button  // Test if parsing succeeded.
+#define DEBOUNCE 30 // debounce+fatfinger delay for button
 
 
 // I2C #1
@@ -42,6 +42,11 @@
 // I2C #2
 #define SDA2 A4
 #define SCK2 A5
+
+// Some limits/allocations
+#define JSONSIZE 550 // Json incoming buffer size
+#define MAXTOKENS 84 // Maximum number of jsmn tokens we can handle (see jsmn docs)
+#define HEATERS 5 // Bed + Up to 4 extruders (max = 99,consumes 8 bytes per heater)
 
 
 // U8x8 Contructor List
@@ -63,7 +68,7 @@ bool powersave = true;         // Go into powersave when controller reports PSU 
 byte bright = 255;             // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
 bool allowpause = true;        // Allow the button to trigger a pause event
 byte activityled = 128;        // Activity LED brightness (0 to disable)
-char ltext[11] = " Idle     "; // Left status line for the idle display (max 10 chars)
+char ltext[11] = "          "; // Left status line for the idle display (max 10 chars)
 char rtext[11] = "          "; // Right status line for the idle display (max 10 chars)
 
 // PrintEye
@@ -72,17 +77,18 @@ int currentbright = 0;     // track changes to brightness
 bool screenpower = true;   // OLED power status
 
 // Json response data:
-char printerstatus = '-';  // from m408 status key, default '-' is shown as 'connecting'
-int bedset = 0;           // Bed target temp
-int toolset = 0;          // Tool target temp
+char printerstatus = '-';  // from m408 status key, initial value '-' is shown as 'connecting'
 int toolhead = 0;          // Tool to be monitored (assume E0 by default)
 int done = 0;             // Percentage printed
 
+// Heater active, standby and status values for all possible heaters ([0] = bed, [1] = E0, [2] = E1, etc)
+int heateractive[HEATERS];
+int heaterstandby[HEATERS];
+byte heaterstatus[HEATERS];
+
 // Main temp display is derived from Json values, split into the integer value and it's decimal
-int bedmain = 0;
-int bedunits = 0;
-int toolmain = 0;
-int toolunits = 0;
+int heaterinteger[HEATERS];
+byte heaterdecimal[HEATERS];
 
 //   ____       _
 //  / ___|  ___| |_ _   _ _ __
@@ -127,6 +133,16 @@ void setup()
   ROLED.setContrast(0); // blank asap, screenbuffer may be full of crud
   ROLED.setFlipMode(1);
   goblank();
+
+  // Set all heater values to off by default.
+  for (int a = 0; a < HEATERS; a++)
+  {
+    heateractive[a] = 0;
+    heaterstandby[a] = 0;
+    heaterstatus[a] = 0;
+    heaterinteger[a] = 0;
+    heaterdecimal[a] = 0;
+  }
 
   screenstart(); // Splash Screen
   delay(2500); // For 2.5 seconds
@@ -284,6 +300,9 @@ void updatedisplay()
   // Because redraws are slow and visible, the order of drawing here is deliberate
   // to ensure updates look 'smooth' to the user
 
+  int bedset = 0;
+  int toolset = 0;
+
   // First update lower status line
   
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
@@ -293,18 +312,24 @@ void updatedisplay()
   ROLED.setCursor(0, 6);
 
   // Max 10 chars for a status string
-  if (printerstatus == 'O' )      LOLED.print(F(" Standby  "));
-  else if (printerstatus == 'I' ) {LOLED.print(ltext); ROLED.print(rtext);}
-  else if (printerstatus == 'P' ) LOLED.print(F(" Printing "));
-  else if (printerstatus == 'S' ) LOLED.print(F(" Stopped  "));
-  else if (printerstatus == 'C' ) LOLED.print(F(" Config   "));
-  else if (printerstatus == 'A' ) LOLED.print(F(" Paused   "));
-  else if (printerstatus == 'D' ) LOLED.print(F(" Pausing  "));
-  else if (printerstatus == 'R' ) LOLED.print(F(" Resuming "));
-  else if (printerstatus == 'B' ) LOLED.print(F(" Busy     "));
-  else if (printerstatus == 'F' ) LOLED.print(F(" Updating "));
-  else if (printerstatus == '-' ) LOLED.print(F("Connecting"));
-  else                            LOLED.print(F("          ")); // show nothing if unknown.
+  if (printerstatus == 'O' )      {if (strcmp_P(ltext, PSTR("          ")) == 0)
+                                   LOLED.print(F(" Standby  "));
+                                   else LOLED.print(ltext); 
+                                   ROLED.print(rtext);}
+  else if (printerstatus == 'I' ) {if (strcmp_P(ltext, PSTR("          ")) == 0)
+                                   LOLED.print(F(" Idle     "));
+                                   else LOLED.print(ltext); 
+                                   ROLED.print(rtext);}
+  else if (printerstatus == 'P' )  LOLED.print(F(" Printing "));
+  else if (printerstatus == 'S' )  LOLED.print(F(" Stopped  "));
+  else if (printerstatus == 'C' )  LOLED.print(F(" Config   "));
+  else if (printerstatus == 'A' )  LOLED.print(F(" Paused   "));
+  else if (printerstatus == 'D' )  LOLED.print(F(" Pausing  "));
+  else if (printerstatus == 'R' )  LOLED.print(F(" Resuming "));
+  else if (printerstatus == 'B' )  LOLED.print(F(" Busy     "));
+  else if (printerstatus == 'F' )  LOLED.print(F(" Updating "));
+  else if (printerstatus == '-' )  LOLED.print(F("Connecting"));
+  else                             LOLED.print(F("          ")); // show nothing if unknown.
     
   if ((printerstatus == 'P') || 
       (printerstatus == 'A') || 
@@ -314,13 +339,23 @@ void updatedisplay()
     ROLED.print(done);
     ROLED.print(F("%  "));
   }
-  else if (printerstatus != 'I') 
+  else if ((printerstatus != 'I') && (printerstatus != 'O')) 
   {
     ROLED.print(F("          "));
   }
 
-  if ((bedset <= 0 ) || ( bedset > 999 ))
-  { // blank when out of bounds
+  if (heaterstatus[0] == 0) bedset = 0;
+  if (heaterstatus[0] == 1) bedset = heaterstandby[0];
+  if (heaterstatus[0] == 2) bedset = heateractive[0];
+  if (heaterstatus[0] == 3) bedset = -1;
+
+  if (bedset == -1 )
+  { // fault
+    LOLED.setCursor(10, 6);
+    LOLED.print(F(" FAULT"));
+  }
+  else if (bedset == 0 )
+  { // blank when off
     LOLED.setCursor(10, 6);
     LOLED.print(F("      "));
   }
@@ -328,14 +363,24 @@ void updatedisplay()
   { // Show target temp
     LOLED.setCursor(10, 6);
     LOLED.print(F("  "));
-    if ( bedset < 100 ) LOLED.print(" ");
-    if ( bedset < 10 ) LOLED.print(" ");
+    if ( bedset < 100 ) LOLED.print(F(" "));
+    if ( bedset < 10 ) LOLED.print(F(" "));
     LOLED.print(bedset);
     LOLED.print(char(176)); // degrees symbol
   }
 
-  if ((toolset <= 0 ) || ( toolset > 999))
-  { // blank when out of bounds
+  if (heaterstatus[toolhead+1] == 0) toolset = 0;
+  if (heaterstatus[toolhead+1] == 1) toolset = heaterstandby[toolhead+1];
+  if (heaterstatus[toolhead+1] == 2) toolset = heateractive[toolhead+1];
+  if (heaterstatus[toolhead+1] == 3) toolset = -1;
+
+  if (toolset == -1 )
+  { // fault
+    ROLED.setCursor(10, 6);
+    ROLED.print(F(" FAULT"));
+  }
+  else if (toolset == 0 )
+  { // blank when off
     ROLED.setCursor(10, 6);
     ROLED.print(F("      "));
   }
@@ -359,61 +404,70 @@ void updatedisplay()
   if (toolhead < 10) ROLED.print(F(" "));
   
   // Bed and Tool status icons
-  if ( bedset <= 0 )
+  if ( bedset == -1 )
   {
     LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print(F("N")); // power off icon in this font set
+    LOLED.print(F("G")); // warning icon
+  }
+  else if ( bedset == 0 )
+  {
+    LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
+    LOLED.setCursor(14, 0);
+    LOLED.print(F("N")); // standby icon
   }
   else
   {
     LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print(F("N")); // heater icon in this font set
+    LOLED.print(F("N")); // heater icon
   }
 
-  if ( toolset <= 0 )
+  if ( toolset == -1 )
   {
     ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print(F("N")); // power off icon in this font set
+    ROLED.print(F("G")); // warning icon
+  }
+  else if ( toolset <= 0 )
+  {
+    ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
+    ROLED.setCursor(14, 0);
+    ROLED.print(F("N")); // standby icon
   }
   else
   {
     ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print(F("T")); // down arrow to line in this font set (looks a bit like a hotend..)
+    ROLED.print(F("T")); // down arrow to line (looks a bit like a hotend)
   }
 
   // Finally the main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
   LOLED.setCursor(0, 0);
-  if ( bedmain < 100 ) LOLED.print(F(" "));
-  if ( bedmain < 10 ) LOLED.print(F(" "));
-  LOLED.print(bedmain);
+  if ( heaterinteger[0] < 100 ) LOLED.print(F(" "));
+  if ( heaterinteger[0] < 10 ) LOLED.print(F(" "));
+  LOLED.print(heaterinteger[0]);
 
-  //LOLED.setFont(u8x8_font_8x13B_1x2_f);
   LOLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   LOLED.setCursor(9, 3);
   LOLED.print(F("."));
-  LOLED.print(bedunits);
+  LOLED.print(heaterdecimal[0]);
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
-  LOLED.print(char(176));
+  LOLED.print(char(176)); // degrees symbol
 
   ROLED.setFont(u8x8_font_inr33_3x6_n);
   ROLED.setCursor(0, 0);
-  if ( toolmain < 100 ) ROLED.print(F(" "));
-  if ( toolmain < 10 ) ROLED.print(F(" "));
-  ROLED.print(toolmain);
+  if ( heaterinteger[toolhead+1] < 100 ) ROLED.print(F(" "));
+  if ( heaterinteger[toolhead+1] < 10 ) ROLED.print(F(" "));
+  ROLED.print(heaterinteger[toolhead+1]);
 
-  ROLED.setFont(u8x8_font_8x13B_1x2_f);
-  //ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
+  ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   ROLED.setCursor(9, 3);
   ROLED.print(F("."));
-  ROLED.print(toolunits);
+  ROLED.print(heaterdecimal[toolhead+1]);
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
-  ROLED.print(char(176));
-
+  ROLED.print(char(176)); // degrees symbol
 }
 
 
@@ -423,27 +477,33 @@ void updatedisplay()
 //  | |_| \__ \ (_) | | | |
 //   \___/|___/\___/|_| |_|
 
+// Good resource:
+// https://alisdair.mcdiarmid.org/jsmn-example/
+
+// Assume the JSON returned by RRF/Duet is very predictable.
+// eg: once we find a key; the values (either single, or in an array) are easy to find.
+
 bool m408parser()
 { // parse a M408 result; or set stuff, or fail.
 
   // Incoming data
-  const int jsonSize = 512; // Maximum size of a M408 response we can process.
+  const int jsonSize = JSONSIZE; // Maximum size of a M408 response we can process.
   static char json[jsonSize + 1];
 
   // Json
-  const int maxtokens = 80; // Max number of distinct objects and values in the json (see jsmn docs)
-  jsmn_parser jparser;
-  static jsmntok_t jtokens[maxtokens];
-  jsmn_init(&jparser);
+  const int maxtokens = MAXTOKENS; // Max number of distinct objects and values in the json (see jsmn docs)
+  static jsmntok_t jtokens[maxtokens];  // Tokens
+  jsmn_parser jparser; // Instance
+  jsmn_init(&jparser); // Initialise
+
 
   // We assume the firmware terminates the JSON response with a \n and no padding (eg.Duet/RRf).
-  
   int index = Serial.readBytesUntil('\n',json,jsonSize);
   json[index] = '\0'; // Null terminate the string
 
   // return false if nothing arrived
   if ( index == 0 ) return (false);
-  
+
   // return false if not initiated properly.
   if ( json[0] != '{' ) return (false);
 
@@ -451,10 +511,10 @@ bool m408parser()
   if ( json[index-2] != '}' ) return (false);
 
   // DEBUG
-  Serial.print(F("freeMemory pre = "));
-  Serial.println(freeMemory());
-  //Serial.print(F("Json : "));
-  //Serial.println(json);
+  //Serial.print(F("freeMemory pre = "));
+  //Serial.println(freeMemory());
+  Serial.print(F("Json : "));
+  Serial.println(json);
   Serial.print(F("Size : "));
   Serial.println(index); // (include the null since it is in memory too)
 
@@ -462,161 +522,165 @@ bool m408parser()
   digitalWrite(LED, activityled);
 
   // We have something that may be Json; process it for any keys we need.
-
-  Serial.print("Running Processor On: ");
-  for (int i=0;i<index;i++) Serial.print(json[i]);
-  Serial.println();
-
   int parsed = jsmn_parse(&jparser, json, index+1, jtokens, maxtokens);
+  //Serial.print(F("Parser Return = "));
+  //Serial.println(parsed);
 
-  Serial.print("Parser Return = ");
-  Serial.println(parsed);
 
-  
   if (parsed < 1 || jtokens[0].type != JSMN_OBJECT) 
   {
-    Serial.println("Not a Json Object");
+    //Serial.println(F("Not a Json Object"));
     return(false);
   }
 
-
-  
   if (parsed == 1)
   {
-    Serial.println("Empty Json Object");
+    //Serial.println(F("Empty Json Object"));
     return(false);
   }
 
   for (int i = 1; i < parsed; i++) 
   {
-    Serial.print(i);
-    Serial.print(" : ");
-    Serial.print(jtokens[i].type);
-    Serial.print(" : ");
-    Serial.print(jtokens[i].size);
-    Serial.print(" : ");
     size_t result_len = jtokens[i].end-jtokens[i].start;
     char result[result_len+1];
     memcpy(result,json + jtokens[i].start,result_len);
-    result[result_len] = 0;
-    Serial.println(result);
-    delay(10); // slow o/p down, my serial monitor glitches otherwise..
+    result[result_len] = '\0';
+
+    if ((jtokens[i].type == 3) && (jtokens[i].size == 1))
+    {
+      // This should be a key, with a value (or an array object) after it.
+
+      if (jtokens[i+1].size == 0) 
+      {
+        // Single value keys
+
+        // Load the corresponding value as a string
+        size_t value_len = jtokens[i+1].end-jtokens[i+1].start;
+        char value[value_len+1];
+        memcpy(value,json + jtokens[i+1].start,value_len);
+        value[value_len] = 0;
+  
+        // Now process all the single-value keys we expect
+        //
+        
+        if (strcmp_P(result, PSTR("status")) == 0)
+        {
+          char oldstatus = printerstatus;
+          printerstatus = value[0];
+          if( ((oldstatus == 'I') || (oldstatus == 'O')) && ((printerstatus != 'O') || (printerstatus != 'O')) )
+          {
+            // we are leaving Idle mode, clear idletext
+            LOLED.clearLine(6);LOLED.clearLine(7);
+            ROLED.clearLine(6);ROLED.clearLine(7);
+          }
+        }
+        else if( strcmp_P(result, PSTR("tool")) == 0 )
+        {
+          toolhead = atoi(value);
+        }
+        else if( strcmp_P(result, PSTR("fraction_printed")) == 0 )
+        {
+          done = atof(value) * 100;
+        }
+        else if( strcmp_P(result, PSTR("printeye_interval")) == 0 )
+        {
+          updateinterval = atoi(value);
+        }
+        else if( strcmp_P(result, PSTR("printeye_maxfail")) == 0 )
+        {
+          maxfail = atoi(value);
+          if (maxfail == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
+        }
+        else if( strcmp_P(result, PSTR("printeye_brightness")) == 0 )
+        {
+          bright = atoi(value);
+        }
+        else if( strcmp_P(result, PSTR("printeye_powersave")) == 0 )
+        {
+          if( strcmp_P(value, PSTR("true")) == 0 ) powersave = true; else powersave = false;
+        }
+        else if( strcmp_P(result, PSTR("printeye_allowpause")) == 0 )
+        {
+          if( strcmp_P(value, PSTR("true")) == 0) allowpause = true; else allowpause = false;
+        }
+        else if( strcmp_P(result, PSTR("printeye_activityled")) == 0 )
+        {
+          activityled = atoi(value);
+        }
+        else if( strcmp_P(result, PSTR("printeye_msg_left")) == 0 )
+        {
+          byte s = strlen(value);
+          for( byte a = 0; a < 10; a++ ) 
+          {
+            if( a < s ) ltext[a] = value[a]; else ltext[a] = ' '; // copy or pad as appropriate
+          }
+          ltext[10]='\0';
+        }
+        else if (strcmp_P(result, PSTR("printeye_msg_right")) == 0)
+        {
+          byte s = strlen(value);
+          for( byte a = 0; a < 10; a++ ) 
+          {
+            if( a < s ) rtext[a] = value[a]; else rtext[a] = ' '; // copy or pad as appropriate
+          }
+          rtext[10]='\0';
+        }
+
+        
+      }
+      else if( (jtokens[i+1].size > 0) && (jtokens[i+1].size <= HEATERS) )
+      {
+        // Multiple value keys 
+        // to save memory exclude any lists too long to be heaters, and assume values are max 5 characters
+
+        byte num_values = jtokens[i+1].size;
+        char values[num_values][6];
+        
+        for( int idx=0; idx < num_values; idx++ )
+        {
+          // Load the corresponding values into an array
+          size_t value_len = jtokens[i+2+idx].end-jtokens[i+2+idx].start;
+          if (value_len > 5) value_len = 5;
+          memcpy(values[idx],json + jtokens[i+2+idx].start,value_len);
+          values[idx][value_len] = '\0';
+        } 
+
+        if (strcmp_P(result, PSTR("heaters")) == 0)
+        {
+          for( int idx=0; idx < num_values; idx++) 
+          {
+            heaterinteger[idx] = atoi(values[idx]);
+            heaterdecimal[idx] = (atof(values[idx])-heaterinteger[idx])*10;
+          }
+        }
+        else if (strcmp_P(result, PSTR("active")) == 0)
+        {
+          for( int idx=0; idx < num_values; idx++) 
+          {
+            heateractive[idx] = atoi(values[idx]);
+          }
+        }
+        else if (strcmp_P(result, PSTR("standby")) == 0)
+        {
+          for( int idx=0; idx < num_values; idx++) 
+          {
+            heaterstandby[idx] = atoi(values[idx]);
+          }
+        }
+        else if (strcmp_P(result, PSTR("hstat")) == 0)
+        {
+          for( int idx=0; idx < num_values; idx++) 
+          {
+            heaterstatus[idx] = atoi(values[idx]);
+          }
+        }
+      }
+    }
   }
-
-  // Printer status
-  //char* setstatus =  responsedoc[F("status")];
-  //if (responsedoc.containsKey(F("status"))) 
-  //{
-  //  if ((printerstatus == 'I') && (setstatus[0] != 'I'))
-  //  { // we are leaving Idle mode, clear idletext
-  //    LOLED.clearLine(6);LOLED.clearLine(7);
-  //    ROLED.clearLine(6);ROLED.clearLine(7);
-  //  }
-  //  printerstatus = setstatus[0];
-  //}
-
-  // Current Tool
-  //signed int tool = responsedoc[F("tool")];
-  //if ((tool >= 0) && (tool <= 99) && responsedoc.containsKey(F("status"))) toolhead = tool;
-
-  // Actual Heater temps
-  //float btemp = responsedoc[F("heaters")][0];
-  //if (responsedoc.containsKey(F("heaters"))) 
-  //{
-  //  bedmain = btemp; // implicit cast to integer
-  //  bedunits = (btemp - bedmain) * 10;
-  //}
-  
-  //float etemp = responsedoc[F("heaters")][toolhead+1];
-  //if (responsedoc.containsKey(F("heaters"))) 
-  //{
-  //  toolmain = etemp; // implicit cast to integer
-  //  toolunits = (etemp - toolmain) * 10;
-  //}
-
-  // Active printer temp
-  //float bset = responsedoc[F("active")][0];
-  //if (responsedoc.containsKey(F("active"))) 
-  //{
-  //  bedset = bset; // implicit cast to integer
-  //}
-  
-  //float eset = responsedoc[F("active")][toolhead+1];
-  //if (responsedoc.containsKey(F("active"))) 
-  //{
-  //  toolset = eset; // implicit cast to integer
-  //}
-
-  // Print progress (simple %done metric)
-  //float printed = responsedoc[F("fraction_printed")];
-  //if (responsedoc.containsKey(F("fraction_printed"))) 
-  //{
-  //  done = printed * 100; // implicit cast to integer 
-  //}
-
-  // Set PrintEye Options via Json.
-  //float interval = responsedoc[F("printeye_interval")];
-  //if (responsedoc.containsKey(F("printeye_interval"))) 
-  //{
-  //  updateinterval = interval; // implicit cast to integer 
-  //}
-
-  //float fails = responsedoc[F("printeye_maxfail")];
-  //if (responsedoc.containsKey(F("printeye_maxfail"))) 
-  //{
-  //  if (fails == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
-  //  maxfail = fails; // implicit cast to integer 
-  //}
-
-  //float dim = responsedoc[F("printeye_brightness")];
-  //if ((dim >= 0) && (dim <= 255) && responsedoc.containsKey(F("printeye_brightness"))) 
-  //{
-  //  bright = dim; // implicit cast to integer 
-  //}
-
-  //float pwr = responsedoc[F("printeye_powersave")];
-  //if (responsedoc.containsKey(F("printeye_powersave")))
-  //{
-  //  powersave = pwr; // implicit cast to boolean 
-  //}
-
-  //char* left = responsedoc[F("printeye_idle_left")];
-  //if (responsedoc.containsKey(F("printeye_idle_left")))
-  //{
-  //  byte s = strlen(left);
-  //  for ( byte a = 0; a < 10; a++ ) 
-  //  {
-  //    if (a < s) ltext[a] = left[a]; else ltext[a] = ' ';
-  //  }
-  //  ltext[10]='\0'; // ensure terminated to avoid overruns when printing
-  //}
-
-  //char* right = responsedoc[F("printeye_idle_right")];
-  //if (responsedoc.containsKey(F("printeye_idle_right")))
-  //{
-  //  byte s = strlen(right);
-  //  for ( byte a = 0; a < 10; a++ ) 
-  //  {
-  //    if (a < s) rtext[a] = right[a]; else rtext[a] = ' ';
-  //  }
-  //  rtext[10]='\0'; // ensure terminated to avoid overruns when printing
-  //}
-
-  //float pausecontrol = responsedoc[F("printeye_allowpause")];
-  //if (responsedoc.containsKey(F("printeye_allowpause")))
-  //{
-  //  allowpause = pausecontrol; // implicit cast to boolean 
-  //}
-
-  //float ledcontrol = responsedoc[F("printeye_activityled")];
-  //if (responsedoc.containsKey(F("printeye_activityled")))
-  //{
-  //  activityled = ledcontrol; // implicit cast to byte 
-  //}
   
   // DEBUG
-  Serial.print(F("freeMemory post = "));
-  Serial.println(freeMemory());
+  //Serial.print(F("freeMemory post = "));
+  //Serial.println(freeMemory());
 
   // Finished processing
   digitalWrite(LED, 0);
