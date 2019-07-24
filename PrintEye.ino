@@ -37,6 +37,7 @@
 
 
 // I2C #1
+
 #define SDA1 A2
 #define SCK1 A3
 // I2C #2
@@ -46,19 +47,26 @@
 // Some limits/allocations
 #define JSONSIZE 550 // Json incoming buffer size
 #define MAXTOKENS 84 // Maximum number of jsmn tokens we can handle (see jsmn docs)
-#define HEATERS 5 // Bed + Up to 4 extruders (max = 99,consumes 8 bytes per heater)
+#define HEATERS 5 // Bed + Up to 4 extruders (max = 99, 8 bytes/heater+ increase in json size makes this ram limited)
+#define JSONWINDOW 300; // How many ms we allow for the whole object to arrive after the '{'
 
-
-// U8x8 Contructor List
+// U8x8 Contructors for my displays and wiring
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
-// Please update the pin numbers according to your setup. Use U8X8_PIN_NONE if the reset pin is not connected
 U8X8_SSD1306_128X64_NONAME_SW_I2C LOLED(/* clock=*/ SCK1, /* data=*/ SDA1, /* reset=*/ U8X8_PIN_NONE);   // Left OLED
 U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* reset=*/ U8X8_PIN_NONE);   // Right OLED
-//
-// HW I2C works, but the ATMega 328P only has one HW interface available, so if your displays have address conflicts this
-// can only be used for for one display; and the results looks weird and imbalanced. IMHO better to use two SW interfaces
-//U8X8_SSD1306_128X64_NONAME_HW_I2C ROLED(/* reset=*/ U8X8_PIN_NONE);
-// End of constructor list
+// U8X8_SSD1306_128X64_NONAME_HW_I2C ROLED(/* reset=*/ U8X8_PIN_NONE);
+//   Hardware I2C works, but the ATMega 328P only has one HW interface available, so if your displays have address conflicts this
+//   can only be used for for one display; and the results looks weird and imbalanced. IMHO better to use two SW interfaces
+
+// During debug I enable both of the following to dump out debug info and monitor the free memory during runtime.
+static const bool debug = true; // Additional serial debug. Not for use when connected to the printer..
+#include "MemoryFree.h" // Taken from https://playground.arduino.cc/Code/AvailableMemory/
+
+// Incoming data
+
+const int jsonSize = JSONSIZE;  // Maximum size of a M408 response we can process.
+static char json[jsonSize + 1]; // Json response
+static int index = 0;           // length of the response
 
 
 // Primary Settings (can also be set via Json messages to serial port, see README)
@@ -85,7 +93,6 @@ int done = 0;             // Percentage printed
 int heateractive[HEATERS];
 int heaterstandby[HEATERS];
 byte heaterstatus[HEATERS];
-
 // Main temp display is derived from Json values, split into the integer value and it's decimal
 int heaterinteger[HEATERS];
 byte heaterdecimal[HEATERS];
@@ -331,10 +338,8 @@ void updatedisplay()
   else if (printerstatus == '-' )  LOLED.print(F("Connecting"));
   else                             LOLED.print(F("          ")); // show nothing if unknown.
     
-  if ((printerstatus == 'P') || 
-      (printerstatus == 'A') || 
-      (printerstatus == 'D') || 
-      (printerstatus == 'R'))
+  if ((printerstatus == 'P') || (printerstatus == 'A') || 
+      (printerstatus == 'D') || (printerstatus == 'R'))
   { // Only display progress when needed
     ROLED.print(done);
     ROLED.print(F("%  "));
@@ -344,10 +349,10 @@ void updatedisplay()
     ROLED.print(F("          "));
   }
 
-  if (heaterstatus[0] == 0) bedset = 0;
   if (heaterstatus[0] == 1) bedset = heaterstandby[0];
-  if (heaterstatus[0] == 2) bedset = heateractive[0];
-  if (heaterstatus[0] == 3) bedset = -1;
+  else if (heaterstatus[0] == 2) bedset = heateractive[0];
+  else if (heaterstatus[0] == 3) bedset = -1;
+  else bedset = 0;
 
   if (bedset == -1 )
   { // fault
@@ -369,10 +374,10 @@ void updatedisplay()
     LOLED.print(char(176)); // degrees symbol
   }
 
-  if (heaterstatus[toolhead+1] == 0) toolset = 0;
   if (heaterstatus[toolhead+1] == 1) toolset = heaterstandby[toolhead+1];
-  if (heaterstatus[toolhead+1] == 2) toolset = heateractive[toolhead+1];
-  if (heaterstatus[toolhead+1] == 3) toolset = -1;
+  else if (heaterstatus[toolhead+1] == 2) toolset = heateractive[toolhead+1];
+  else if (heaterstatus[toolhead+1] == 3) toolset = -1;
+  else toolset = 0;
 
   if (toolset == -1 )
   { // fault
@@ -442,7 +447,7 @@ void updatedisplay()
     ROLED.print(F("T")); // down arrow to line (looks a bit like a hotend)
   }
 
-  // Finally the main temps (slowest to redraw)
+  // The main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
   LOLED.setCursor(0, 0);
   if ( heaterinteger[0] < 100 ) LOLED.print(F(" "));
@@ -484,31 +489,18 @@ void updatedisplay()
 // eg: once we find a key; the values (either single, or in an array) are easy to find.
 
 bool m408parser()
-{ // parse a M408 result; or set stuff, or fail.
+{ // parse the Json data in 'char json[0-index]'; set values as appropriate or fail
 
-  // Incoming data
-  const int jsonSize = JSONSIZE; // Maximum size of a M408 response we can process.
-  static char json[jsonSize + 1];
-
-  // Json
+  // Json parser instance
   const int maxtokens = MAXTOKENS; // Max number of distinct objects and values in the json (see jsmn docs)
   static jsmntok_t jtokens[maxtokens];  // Tokens
-  jsmn_parser jparser; // Instance
-  jsmn_init(&jparser); // Initialise
+  static jsmn_parser jparser; // Instance
+  jsmn_init(&jparser); // Initialise json parser instance
 
-
-  // We assume the firmware terminates the JSON response with a \n and no padding (eg.Duet/RRf).
-  int index = Serial.readBytesUntil('\n',json,jsonSize);
-  json[index] = '\0'; // Null terminate the string
-
-  // return false if nothing arrived
-  if ( index == 0 ) return (false);
-
-  // return false if not initiated properly.
-  if ( json[0] != '{' ) return (false);
-
-  // return false if not terminated properly.
-  if ( json[index-2] != '}' ) return (false);
+  // Sanity checks (should not happen if upstream logic is OK..)
+  if ( index == 0 ) return (false); // return false if nothing arrived
+  if ( json[0] != '{' ) return (false); // return false if not initiated properly.
+  if ( json[index] != '}' ) return (false); // return false if not terminated properly.
 
   // DEBUG
   //Serial.print(F("freeMemory pre = "));
@@ -516,13 +508,14 @@ bool m408parser()
   Serial.print(F("Json : "));
   Serial.println(json);
   Serial.print(F("Size : "));
-  Serial.println(index); // (include the null since it is in memory too)
+  Serial.println(index);
 
   // blink 
   digitalWrite(LED, activityled);
 
-  // We have something that may be Json; process it for any keys we need.
+  // Parse the Json
   int parsed = jsmn_parse(&jparser, json, index+1, jtokens, maxtokens);
+
   //Serial.print(F("Parser Return = "));
   //Serial.println(parsed);
 
@@ -625,8 +618,6 @@ bool m408parser()
           }
           rtext[10]='\0';
         }
-
-        
       }
       else if( (jtokens[i+1].size > 0) && (jtokens[i+1].size <= HEATERS) )
       {
@@ -688,7 +679,7 @@ bool m408parser()
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
   if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
   
-  return(true);
+  return(true);  // we have processed a valid block, does not assert whether data has been updated
 }
 
 
@@ -701,37 +692,83 @@ bool m408parser()
 
 void loop(void)
 {
-  // Begin with the data request to the RepRap controller
+  // The core of this is a loop that loops while periodically sending M408 S0 requests 
+  // and waiting for an answer for 1s (or whatever is configured).
+  //
+  // All responses are processed asap, if a potential Json start is detected '{' 
+  // then a 300ms loop looks to read all ther remaining data as fast as possible into a buffer.
+  // This read loop finishes when it either detects the terminator '}' or times out.
+  // Any apparently viable json packets captured are then passed to the Json parser function.
+  //
+  // Other incoming characters that are not part of any json object are dropped
+  //
   // M408 S0 is the most basic info request, but has all the data we use
-  Serial.println(F("M408 S0"));
-
-  // This is the 'MAIN' loop where we spend most of our time waiting for
-  // serial responses having sent the M408 request.
   
-  for ( int counter = 0 ; counter < updateinterval ; counter++ )
+  static unsigned long timeout = millis() + updateinterval;;
+  bool jsonstart = false;
+
+  do 
   {
-    // Anything in the serial buffer?
-    if ( Serial.available() )
-    {
-      // We have something; peek at it and decide what to do, does it look like incoming Json?
-      if (Serial.peek() == '{')
-      { // It might be Json; read and parse it
-        if (m408parser()) noreply = 0; // success; reset the fail count
-      }
-      else
-      {
-        Serial.read(); // not a Json start character, junk it and wait for another
-      }
+    Serial.println(F("M408 S0"));
+    noreply++; // Always assume the request will fail, m408paser() resets the count on success
+    if (maxfail != -1) {
+      // once max number of failed requests is reached, show 'waiting for printer'
+      if ( noreply == maxfail ) commwait();
     }
-    else
+    timeout = millis() + updateinterval;;
+    while ( millis() < timeout && !jsonstart )
     {
-      // wait a millisecond(ish) and loop
+      // do nothing but look for a '{' on the serial port for a time defined by 'updateinterval'
       delay(1);
+      if (Serial.read() == '{')
+      {
+        jsonstart = true;
+      }
     }
   }
+  while (!jsonstart);
 
-  // we now either have updated data, or a timeout..
+  if (debug) Serial.println("Json start character detected");
 
+  // Now read input until the terminating '}' is encountered (eg success)
+  // or fail if we either timeout (default 300ms) or hit the maximum length
+  
+  static char incoming = '{'; 
+  timeout = millis() + JSONWINDOW; // reset timeout and look for rest of data
+  
+  while (incoming != '}') 
+  {
+    if (incoming != -1) 
+    {
+      json[index] = incoming;
+      index++;
+    }
+    if (index > jsonSize) 
+    {
+      index = 0;
+      if (debug) Serial.println("Object too large");
+      break;
+    }
+    if (millis() > timeout)
+    {
+      index = 0;
+      if (debug) Serial.println("Timeout reading Object");
+      break;
+    }
+    incoming = Serial.read();
+  } // no delay in this loop, we dont want sender to overwhelm the serial buffer.
+  
+  if (index == 0)
+  {
+    if (debug) Serial.println("No valid Json to process");
+    return;  // no new input, so skip parsing or updating display, go back to requesting
+  }
+
+  // Now the hard part.. parsing json
+  // reset fail counter on success, loop again on failure
+  
+  if (m408parser) noreply = 0; else return; 
+ 
   if ( powersave ) // handle powersave mode, if enabled
   { 
     // Sleep the screen when firmware reports PSU off
@@ -742,19 +779,12 @@ void loop(void)
   }
 
   // Update Screen 
-  //.. but first update brightness level as needed (returns true 
-  // if screen is on, false if blank) 
+  //.. but first update brightness level as needed (returns true if screen is on, false if blank) 
   // Then test if we have had a response during this requestcycle, 
   // Determine whether we are in standby mode
   // update the display if needed
+  
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
-
-  // we always assume the next request will fail, m408paser() resets the count on success
-  noreply++;
-  if (maxfail != -1) {
-    // once max number of failed requests is reached, show 'waiting for printer'
-    if ( noreply == maxfail ) commwait();
-  }
 
   // Start the next request cycle
 }
