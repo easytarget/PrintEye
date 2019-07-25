@@ -21,10 +21,10 @@ standby
 {"printeye_brightness":0}
 {"printeye_brightness":32}
 {"printeye_brightness":255}
-{"printeye_powersave":true}
-{"printeye_powersave":false}
-{"printeye_allowpause":true}standby
-{"printeye_allowpause":false}HEATERS
+{"printeye_screensave":true}
+{"printeye_screensave":false}
+{"printeye_allowpause":true}
+{"printeye_allowpause":false}
 {"printeye_activityled":0}
 {"printeye_activityled":64}
 {"printeye_activityled":255}

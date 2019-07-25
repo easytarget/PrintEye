@@ -17,38 +17,42 @@
 // https://duet3d.dozuki.com/Wiki/Gcode#Section_M118_Send_Message_to_Specific_Target
 // https://reprap.org/forum/read.php?416,830988
 
-// Maybe use for a 3.3v arduino with a 16Mhz cristal. Nb; affects serial baud rate..
+// Maybe useful for a 3.3v arduino with a 16Mhz cristal. Nb; affects serial baud rate..
 // power&clock divider lib: https://arduino.stackexchange.com/a/5414
 //#include <avr/power.h>
+// needs enabling in setup too.
 
 #include <Arduino.h>
 #include <U8x8lib.h>
 #include "jsmn.h"
 
-// During debug I enable the following to dump out the free memory during runtime.
-// Taken from https://playground.arduino.cc/Code/AvailableMemory/
-//#include "MemoryFree.h" 
-
 // Pinout
-#define LED 13      // DEBUG: led on trinket, non pwm.
-//#define LED 9      // pwm capable alternative for LED
-#define BUTTON 10  // pause button(s)
-#define DEBOUNCE 30 // debounce+fatfinger delay for button
+//#define LED 13        // DEBUG: led on trinket, non pwm.
+#define LED 9       // pwm capable alternative for LED
+#define BUTTON 10     // pause button pin
+#define DEBOUNCE 150  // debounce+fatfinger delay for button in ms
 
 
-// I2C #1
-
+// I2C Left display
 #define SDA1 A2
 #define SCK1 A3
-// I2C #2
+
+// I2C Right display
 #define SDA2 A4
 #define SCK2 A5
 
-// Some limits/allocations
-#define JSONSIZE 550 // Json incoming buffer size
-#define MAXTOKENS 84 // Maximum number of jsmn tokens we can handle (see jsmn docs)
-#define HEATERS 5 // Bed + Up to 4 extruders (max = 99, 8 bytes/heater+ increase in json size makes this ram limited)
-#define JSONWINDOW 300; // How many ms we allow for the whole object to arrive after the '{'
+
+// Some important limits and allocations
+// - what you set here must stay under available ram 
+// - Allow 150 bytes or so free for allocations during processing and screen updates (found by experiment)
+// Heater settings are good for a 4 extruder system, this is a resource limit; display can handle up to 99 
+// - Each additional heater adds 8 bytes in global arrays, 4 additional tokens, 20 characters of extra Json
+//
+#define JSONSIZE 520    // Json incoming buffer size
+#define MAXTOKENS 86    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
+#define HEATERS 5       // Bed + Up to 4 extruders
+#define JSONWINDOW 500; // How many ms we allow for the rest of the object to arrive after the '{' is recieved
+
 
 // U8x8 Contructors for my displays and wiring
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
@@ -59,24 +63,24 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* re
 //   can only be used for for one display; and the results looks weird and imbalanced. IMHO better to use two SW interfaces
 
 // During debug I enable both of the following to dump out debug info and monitor the free memory during runtime.
-static const bool debug = true; // Additional serial debug. Not for use when connected to the printer..
+static bool debug = !true; // Additional serial debug. Not for use when connected to the printer..
 #include "MemoryFree.h" // Taken from https://playground.arduino.cc/Code/AvailableMemory/
 
 // Incoming data
 
 const int jsonSize = JSONSIZE;  // Maximum size of a M408 response we can process.
 static char json[jsonSize + 1]; // Json response
-static int index = 0;           // length of the response
+static int index;               // length of the response
 
 
 // Primary Settings (can also be set via Json messages to serial port, see README)
 int updateinterval = 1000;     // how many ~1ms loops we spend looking for a response after M408
 int maxfail = 6;               // max failed requests before entering comms fail mode (-1 to disable)
-bool powersave = true;         // Go into powersave when controller reports PSU off status 'O'
+bool screensave = true;         // Go into screensave when controller reports PSU off status 'O'
 byte bright = 255;             // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
 bool allowpause = true;        // Allow the button to trigger a pause event
 byte activityled = 128;        // Activity LED brightness (0 to disable)
-char ltext[11] = "          "; // Left status line for the idle display (max 10 chars)
+char ltext[11] = "SHOWSTATUS"; // Left status line for the idle display (max 10 chars)
 char rtext[11] = "          "; // Right status line for the idle display (max 10 chars)
 
 // PrintEye
@@ -106,7 +110,7 @@ byte heaterdecimal[HEATERS];
 
 void setup()
 {
-  // 3.3v ATMega with 16Mhz crystal: 
+  // 3.3v ATMega with 16Mhz crystal? Drop to 8MHz!
   // This is an option to avoid using level converters while still using that 
   // 'spare' 328P+crystal you have in the parts bin..
   // It relies on the fact that the 328P can probably boot to here OK even 
@@ -114,33 +118,22 @@ void setup()
   // temperature/load dependent; plenty of people have done it successfully
   // for light loads/cool conditions. But some chips are more on the edge
   // than others (we are Overclocking, in principle) so YMMV. ;-)
-  //
-  // Drop to 8MHz since that is in-spec for a ATMega328P @ 3.3v
-  // clock_prescale_set(clock_div_2);
   // nb: If you enable this, you also need to halve the serial speed below since 
   //     the Serial port clock is affected by this change.
+  // clock_prescale_set(clock_div_2);
 
   // Some serial is needed
   Serial.begin(57600); // DUET default is 57600,
-  Serial.setTimeout(500); // give the printer max 500ms to send complete json block
 
   // The button and the LED
   pinMode(LED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
+  digitalWrite(LED, true); // blip the LED
 
-  // Does not speed up software I2C..
-  //LOLED.setBusClock(400000);
-  //ROLED.setBusClock(400000);
-
-  // Displays
-  LOLED.begin();
-  LOLED.setContrast(0); // blank asap, screenbuffer may be full of crud
-  LOLED.setFlipMode(1);
-  ROLED.begin();
-  ROLED.setContrast(0); // blank asap, screenbuffer may be full of crud
-  ROLED.setFlipMode(1);
-  goblank();
-
+  // Some serial is needed
+  Serial.begin(57600); // DUET default is 57600,
+  delay(50);  
+  
   // Set all heater values to off by default.
   for (int a = 0; a < HEATERS; a++)
   {
@@ -150,9 +143,21 @@ void setup()
     heaterinteger[a] = 0;
     heaterdecimal[a] = 0;
   }
+  digitalWrite(LED, false);
+  
 
-  screenstart(); // Splash Screen
-  delay(2500); // For 2.5 seconds
+  // Displays
+  LOLED.begin();
+  LOLED.setFlipMode(1);
+  ROLED.begin();
+  ROLED.setFlipMode(1);
+  goblank();
+  splashscreen();         // Splash Screen
+  delay(2400);            // For 2.5 seconds
+  analogWrite(LED, activityled); // flash LED
+  delay(100);
+  analogWrite(LED, 0);
+  screenclean();
 }
 
 
@@ -166,8 +171,8 @@ void screenclean()
 { // clear both oleds, used in animations
   LOLED.clear();
   ROLED.clear();
-
 }
+
 void goblank()
 { // darken screen then erase contents, used in animations
   LOLED.setContrast(0);
@@ -182,7 +187,7 @@ void unblank()
 }
 
 void screensleep()
-{ // flash power off icon, blank the screen and turn on powersave
+{ // flash power off icon, blank the screen and turn on screensave
   goblank();
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
@@ -191,7 +196,7 @@ void screensleep()
   LOLED.print(F("N")); // power off icon in this font set
   ROLED.print(F("N")); // power off icon in this font set
   unblank();
-  delay(666); // flash the power off icons
+  delay(668); // flash the power off icons
   goblank();
   LOLED.setPowerSave(true);
   ROLED.setPowerSave(true);
@@ -199,7 +204,7 @@ void screensleep()
 }
 
 
-// Take the screen out of powersave and flash the power on icon
+// Take the screen out of screensave and flash the power on icon
 
 void screenwake()
 {
@@ -214,16 +219,15 @@ void screenwake()
   LOLED.print(F("O")); // Resume icon in this font set
   ROLED.print(F("O")); // Resume icon in this font set
   unblank();
-  delay(666); // flash the icons then clean and reset screen
+  delay(668); // flash the icons then clean and reset screen
   goblank();
   unblank();
-  noreply = 0;
 }
 
 
-// start the screen for the first time (splashscreen..)
+// splashscreen.
 
-void screenstart()
+void splashscreen()
 {
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
@@ -261,7 +265,7 @@ void commwait()
   LOLED.print(F("F")); // comms icon in this font set
   ROLED.print(F("F")); // comms icon in this font set
 
-  // screen on (even in powersave mode)
+  // screen on (even in screensave mode)
   LOLED.setPowerSave(false); 
   ROLED.setPowerSave(false);
   unblank();
@@ -304,8 +308,14 @@ bool setbrightness()
 
 void updatedisplay()
 {
+  // Called every time a valid Json response is recieved to update the screen with the 
+  // current printer state. (not called during screensave)
+  
   // Because redraws are slow and visible, the order of drawing here is deliberate
-  // to ensure updates look 'smooth' to the user
+  // to ensure updates look smooth and animated to the user
+  // There is no screenbuffer (memory, again) so we overdraw every active screen element 
+  // on each update, and have logic to blank areas when they are inactive.
+  // - This all looks very cumbersome in code, cest'la'vie!
 
   int bedset = 0;
   int toolset = 0;
@@ -318,14 +328,17 @@ void updatedisplay()
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
 
-  // Max 10 chars for a status string
-  if (printerstatus == 'O' )      {if (strcmp_P(ltext, PSTR("          ")) == 0)
-                                   LOLED.print(F(" Standby  "));
-                                   else LOLED.print(ltext); 
+  // Max 10 chars for a status string, '
+  // SHOWSTATUS' is special, it displays 'sleep' or 'idle' as appropriate.
+  if (printerstatus == 'O' )      {if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0)
+                                     LOLED.print(F(" Sleep    "));
+                                   else 
+                                     LOLED.print(ltext); 
                                    ROLED.print(rtext);}
-  else if (printerstatus == 'I' ) {if (strcmp_P(ltext, PSTR("          ")) == 0)
-                                   LOLED.print(F(" Idle     "));
-                                   else LOLED.print(ltext); 
+  else if (printerstatus == 'I' ) {if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0)
+                                     LOLED.print(F(" Idle     "));
+                                   else 
+                                     LOLED.print(ltext); 
                                    ROLED.print(rtext);}
   else if (printerstatus == 'P' )  LOLED.print(F(" Printing "));
   else if (printerstatus == 'S' )  LOLED.print(F(" Stopped  "));
@@ -335,18 +348,18 @@ void updatedisplay()
   else if (printerstatus == 'R' )  LOLED.print(F(" Resuming "));
   else if (printerstatus == 'B' )  LOLED.print(F(" Busy     "));
   else if (printerstatus == 'F' )  LOLED.print(F(" Updating "));
-  else if (printerstatus == '-' )  LOLED.print(F("Connecting"));
-  else                             LOLED.print(F("          ")); // show nothing if unknown.
+  else if (printerstatus == '-' )  LOLED.print(F("Connecting")); // never set by the printer, used during init.
+  else                             LOLED.print(F("Bad Status")); // Oops; has someone added a new status?
     
   if ((printerstatus == 'P') || (printerstatus == 'A') || 
       (printerstatus == 'D') || (printerstatus == 'R'))
-  { // Only display progress when needed
+  { // Only display progress during printing states
     ROLED.print(done);
     ROLED.print(F("%  "));
   }
   else if ((printerstatus != 'I') && (printerstatus != 'O')) 
   {
-    ROLED.print(F("          "));
+    ROLED.print(F("          ")); 
   }
 
   if (heaterstatus[0] == 1) bedset = heaterstandby[0];
@@ -492,43 +505,36 @@ bool m408parser()
 { // parse the Json data in 'char json[0-index]'; set values as appropriate or fail
 
   // Json parser instance
-  const int maxtokens = MAXTOKENS; // Max number of distinct objects and values in the json (see jsmn docs)
-  static jsmntok_t jtokens[maxtokens];  // Tokens
+  static jsmntok_t jtokens[MAXTOKENS];  // Tokens
   static jsmn_parser jparser; // Instance
   jsmn_init(&jparser); // Initialise json parser instance
 
-  // Sanity checks (should not happen if upstream logic is OK..)
-  if ( index == 0 ) return (false); // return false if nothing arrived
-  if ( json[0] != '{' ) return (false); // return false if not initiated properly.
-  if ( json[index] != '}' ) return (false); // return false if not terminated properly.
-
-  // DEBUG
-  //Serial.print(F("freeMemory pre = "));
-  //Serial.println(freeMemory());
-  Serial.print(F("Json : "));
-  Serial.println(json);
-  Serial.print(F("Size : "));
-  Serial.println(index);
+  if (debug) Serial.print(F("freeMemory pre = "));
+  if (debug) Serial.println(freeMemory());
+  if (debug) Serial.print(F("Json : "));
+  if (debug) Serial.println(json);
+  if (debug) Serial.print(F("Size : "));
+  if (debug) Serial.println(index);
 
   // blink 
-  digitalWrite(LED, activityled);
+  analogWrite(LED, activityled);
 
   // Parse the Json
-  int parsed = jsmn_parse(&jparser, json, index+1, jtokens, maxtokens);
+  int parsed = jsmn_parse(&jparser, json, index+1, jtokens, MAXTOKENS);
 
-  //Serial.print(F("Parser Return = "));
-  //Serial.println(parsed);
+  if (debug) Serial.print(F("Parser Return = "));
+  if (debug) Serial.println(parsed);
 
 
   if (parsed < 1 || jtokens[0].type != JSMN_OBJECT) 
   {
-    //Serial.println(F("Not a Json Object"));
+    if (debug) Serial.println(F("Not a Json Object"));
     return(false);
   }
 
   if (parsed == 1)
   {
-    //Serial.println(F("Empty Json Object"));
+    if (debug) Serial.println(F("Empty Json Object"));
     return(false);
   }
 
@@ -547,7 +553,7 @@ bool m408parser()
       {
         // Single value keys
 
-        // Load the corresponding value as a string
+        // Load the corresponding value to a char array
         size_t value_len = jtokens[i+1].end-jtokens[i+1].start;
         char value[value_len+1];
         memcpy(value,json + jtokens[i+1].start,value_len);
@@ -588,9 +594,9 @@ bool m408parser()
         {
           bright = atoi(value);
         }
-        else if( strcmp_P(result, PSTR("printeye_powersave")) == 0 )
+        else if( strcmp_P(result, PSTR("printeye_screensave")) == 0 )
         {
-          if( strcmp_P(value, PSTR("true")) == 0 ) powersave = true; else powersave = false;
+          if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; else screensave = false;
         }
         else if( strcmp_P(result, PSTR("printeye_allowpause")) == 0 )
         {
@@ -669,12 +675,11 @@ bool m408parser()
     }
   }
   
-  // DEBUG
-  //Serial.print(F("freeMemory post = "));
-  //Serial.println(freeMemory());
+  if (debug) Serial.print(F("freeMemory post = "));
+  if (debug) Serial.println(freeMemory());
 
   // Finished processing
-  digitalWrite(LED, 0);
+  analogWrite(LED, 0);
 
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
   if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
@@ -704,9 +709,10 @@ void loop(void)
   //
   // M408 S0 is the most basic info request, but has all the data we use
   
-  static unsigned long timeout = millis() + updateinterval;;
-  bool jsonstart = false;
-
+  unsigned long timeout;
+  bool jsonstart;
+  
+  jsonstart = false;
   do 
   {
     Serial.println(F("M408 S0"));
@@ -715,7 +721,9 @@ void loop(void)
       // once max number of failed requests is reached, show 'waiting for printer'
       if ( noreply == maxfail ) commwait();
     }
-    timeout = millis() + updateinterval;;
+    
+    timeout = millis() + updateinterval; // start the clock
+    
     while ( millis() < timeout && !jsonstart )
     {
       // do nothing but look for a '{' on the serial port for a time defined by 'updateinterval'
@@ -728,14 +736,13 @@ void loop(void)
   }
   while (!jsonstart);
 
-  if (debug) Serial.println("Json start character detected");
-
   // Now read input until the terminating '}' is encountered (eg success)
   // or fail if we either timeout (default 300ms) or hit the maximum length
   
-  static char incoming = '{'; 
+  index = 0;
+  char incoming = '{'; 
   timeout = millis() + JSONWINDOW; // reset timeout and look for rest of data
-  
+
   while (incoming != '}') 
   {
     if (incoming != -1) 
@@ -746,13 +753,13 @@ void loop(void)
     if (index > jsonSize) 
     {
       index = 0;
-      if (debug) Serial.println("Object too large");
+      if (debug) Serial.println(F("Object too large"));
       break;
     }
     if (millis() > timeout)
     {
       index = 0;
-      if (debug) Serial.println("Timeout reading Object");
+      if (debug) Serial.println(F("Timeout reading Object"));
       break;
     }
     incoming = Serial.read();
@@ -760,16 +767,21 @@ void loop(void)
   
   if (index == 0)
   {
-    if (debug) Serial.println("No valid Json to process");
+    if (debug) Serial.println(F("No valid Json to process"));
     return;  // no new input, so skip parsing or updating display, go back to requesting
+  }
+  else
+  {
+    json[index] = '}'; // terminate the json
+    json[index+1] = '\0'; // terminate the json
   }
 
   // Now the hard part.. parsing json
-  // reset fail counter on success, loop again on failure
+  //  reset the fail counter on success, loop again on failure
   
-  if (m408parser) noreply = 0; else return; 
+  if (m408parser()) noreply = 0; else return;
  
-  if ( powersave ) // handle powersave mode, if enabled
+  if ( screensave ) // handle screensave mode, if enabled
   { 
     // Sleep the screen when firmware reports PSU off
     if (( printerstatus == 'O') && screenpower) screensleep();
