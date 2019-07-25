@@ -27,8 +27,7 @@
 #include "jsmn.h"
 
 // Pinout
-//#define LED 13        // DEBUG: led on trinket, non pwm.
-#define LED 9       // pwm capable alternative for LED
+#define LED 9         // pwm capable O/P for the led
 #define BUTTON 10     // pause button pin
 #define DEBOUNCE 150  // debounce+fatfinger delay for button in ms
 
@@ -53,6 +52,10 @@
 #define HEATERS 5       // Bed + Up to 4 extruders
 #define JSONWINDOW 500; // How many ms we allow for the rest of the object to arrive after the '{' is recieved
 
+// gcodes
+#define REQUESTCMD M408 S0
+#define PAUSECMD   M25
+#define RESUMECMD  M24
 
 // U8x8 Contructors for my displays and wiring
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
@@ -100,6 +103,10 @@ byte heaterstatus[HEATERS];
 // Main temp display is derived from Json values, split into the integer value and it's decimal
 int heaterinteger[HEATERS];
 byte heaterdecimal[HEATERS];
+
+// counter for the pause button
+unsigned long pausetimer = 0;
+
 
 //   ____       _
 //  / ___|  ___| |_ _   _ _ __
@@ -488,6 +495,44 @@ void updatedisplay()
   ROLED.print(char(176)); // degrees symbol
 }
 
+//   ____        _   _              
+//  | __ ) _   _| |_| |_ ___  _ __  
+//  |  _ \| | | | __| __/ _ \| '_ \ 
+//  | |_) | |_| | |_| || (_) | | | |
+//  |____/ \__,_|\__|\__\___/|_| |_|
+
+void handlebutton()
+{
+  
+  // Process the button state and send pause/resume as appropriate
+  
+  if (!allowpause) return; // fast exit if pause disabled 
+  
+  if (!digitalRead(BUTTON))
+  {
+    // button not pressed, reset pause timer and exit asap
+    if (pausetimer != 0) 
+    { 
+      analogWrite(LED, 0);
+      pausetimer = 0;
+    }
+    return; 
+  }
+  else
+  {
+    // Button is pressed 
+    analogWrite(LED,255); // led always on full while pause pressed
+    if (pausetimer == 0) pausetimer = millis(); // start timer as needed
+
+    if ((pausetimer + DEBOUNCE) > millis()) 
+    {
+      // Button held down for timeout; send commands as appropriate;
+      if (printerstatus == 'P') Serial.println(F("PAUSECODE"));
+      if (printerstatus == 'A') Serial.println(F("RESUMECODE"));
+    }
+  }
+}
+
 
 //       _
 //      | |___  ___  _ __
@@ -501,7 +546,7 @@ void updatedisplay()
 // Assume the JSON returned by RRF/Duet is very predictable.
 // eg: once we find a key; the values (either single, or in an array) are easy to find.
 
-bool m408parser()
+bool jsonparser()
 { // parse the Json data in 'char json[0-index]'; set values as appropriate or fail
 
   // Json parser instance
@@ -715,8 +760,8 @@ void loop(void)
   jsonstart = false;
   do 
   {
-    Serial.println(F("M408 S0"));
-    noreply++; // Always assume the request will fail, m408paser() resets the count on success
+    Serial.println(F("REQUESTCMD"));
+    noreply++; // Always assume the request will fail, jsonpaser() resets the count on success
     if (maxfail != -1) {
       // once max number of failed requests is reached, show 'waiting for printer'
       if ( noreply == maxfail ) commwait();
@@ -726,10 +771,12 @@ void loop(void)
     
     while ( millis() < timeout && !jsonstart )
     {
-      // do nothing but look for a '{' on the serial port for a time defined by 'updateinterval'
+      // check button and look for a '{' on the serial port for a time defined by 'updateinterval'
+      handlebutton();
       delay(1);
       if (Serial.read() == '{')
       {
+        // flag to exit the nested while loops and process input
         jsonstart = true;
       }
     }
@@ -762,8 +809,9 @@ void loop(void)
       if (debug) Serial.println(F("Timeout reading Object"));
       break;
     }
+    handlebutton();
     incoming = Serial.read();
-  } // no delay in this loop, we dont want sender to overwhelm the serial buffer.
+  } // no delay in this loop, clear the incoming buffer asap.
   
   if (index == 0)
   {
@@ -779,7 +827,7 @@ void loop(void)
   // Now the hard part.. parsing json
   //  reset the fail counter on success, loop again on failure
   
-  if (m408parser()) noreply = 0; else return;
+  if (jsonparser()) noreply = 0; else return;
  
   if ( screensave ) // handle screensave mode, if enabled
   { 
@@ -792,9 +840,8 @@ void loop(void)
 
   // Update Screen 
   //.. but first update brightness level as needed (returns true if screen is on, false if blank) 
-  // Then test if we have had a response during this requestcycle, 
-  // Determine whether we are in standby mode
-  // update the display if needed
+  // Then test if we have had a response during this requestcycle, and 
+  // Determine whether we are in standby mode, and only update the display if needed
   
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
