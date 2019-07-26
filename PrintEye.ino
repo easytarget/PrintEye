@@ -6,6 +6,8 @@
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 */
 
+#define DEBUG
+
 // FONT reference
 // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
 // Duet reference
@@ -66,8 +68,9 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* re
 //   can only be used for for one display; and the results looks weird and imbalanced. IMHO better to use two SW interfaces
 
 // During debug I enable both of the following to dump out debug info and monitor the free memory during runtime.
-static bool debug = !true; // Additional serial debug. Not for use when connected to the printer..
+#ifdef DEBUG 
 #include "MemoryFree.h" // Taken from https://playground.arduino.cc/Code/AvailableMemory/
+#endif
 
 // Incoming data
 
@@ -129,9 +132,6 @@ void setup()
   //     the Serial port clock is affected by this change.
   // clock_prescale_set(clock_div_2);
 
-  // Some serial is needed
-  Serial.begin(57600); // DUET default is 57600,
-
   // The button and the LED
   pinMode(LED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
@@ -139,7 +139,11 @@ void setup()
 
   // Some serial is needed
   Serial.begin(57600); // DUET default is 57600,
-  delay(50);  
+  delay(50);
+
+  #ifdef DEBUG
+    Serial.println(F("Debug Enabled"));
+  #endif
   
   // Set all heater values to off by default.
   for (int a = 0; a < HEATERS; a++)
@@ -544,7 +548,7 @@ void handlebutton()
 // Good resource:
 // https://alisdair.mcdiarmid.org/jsmn-example/
 
-// Assume the JSON returned by RRF/Duet is very predictable.
+// Assume the JSON returned by RRF/Duet is very predictable and not nested.
 // eg: once we find a key; the values (either single, or in an array) are easy to find.
 
 bool jsonparser()
@@ -555,12 +559,14 @@ bool jsonparser()
   static jsmn_parser jparser; // Instance
   jsmn_init(&jparser); // Initialise json parser instance
 
-  if (debug) Serial.print(F("freeMemory pre = "));
-  if (debug) Serial.println(freeMemory());
-  if (debug) Serial.print(F("Json : "));
-  if (debug) Serial.println(json);
-  if (debug) Serial.print(F("Size : "));
-  if (debug) Serial.println(index);
+  #ifdef DEBUG 
+    Serial.print(F("freeMemory pre = "));
+    Serial.println(freeMemory());
+    Serial.print(F("Json : "));
+    Serial.println(json);
+    Serial.print(F("Size : "));
+    Serial.println(index);
+  #endif
 
   // blink 
   analogWrite(LED, activityled);
@@ -568,36 +574,45 @@ bool jsonparser()
   // Parse the Json
   int parsed = jsmn_parse(&jparser, json, index+1, jtokens, MAXTOKENS);
 
-  if (debug) Serial.print(F("Parser Return = "));
-  if (debug) Serial.println(parsed);
-
+  #ifdef DEBUG
+    Serial.print(F("Parser Return = "));
+    Serial.println(parsed);
+  #endif
 
   if (parsed < 1 || jtokens[0].type != JSMN_OBJECT) 
   {
-    if (debug) Serial.println(F("Not a Json Object"));
+    #ifdef DEBUG 
+      Serial.println(F("Not a Json Object"));
+    #endif
     return(false);
   }
 
   if (parsed == 1)
   {
-    if (debug) Serial.println(F("Empty Json Object"));
+    #ifdef DEBUG 
+      Serial.println(F("Empty Json Object"));
+    #endif
     return(false);
   }
 
+  // Now process each token in turn using token parameters to 
+  //  determine if we have a key, a value, or a nest of values.
+  
   for (int i = 1; i < parsed; i++) 
   {
+    // determine token payload size and copy to 'result[]'
     size_t result_len = jtokens[i].end-jtokens[i].start;
     char result[result_len+1];
     memcpy(result,json + jtokens[i].start,result_len);
     result[result_len] = '\0';
 
+    // If it is type 3, and the token size is 1, we have a key.
     if ((jtokens[i].type == 3) && (jtokens[i].size == 1))
     {
-      // This should be a key, with a value (or an array object) after it.
-
+      // The corresponding value (or an array object) is in the following token
       if (jtokens[i+1].size == 0) 
       {
-        // Single value keys
+        // Single value key
 
         // Load the corresponding value to a char array
         size_t value_len = jtokens[i+1].end-jtokens[i+1].start;
@@ -674,20 +689,25 @@ bool jsonparser()
       else if( (jtokens[i+1].size > 0) && (jtokens[i+1].size <= HEATERS) )
       {
         // Multiple value keys 
-        // to save memory exclude any lists too long to be heaters, and assume values are max 5 characters
+        //  To save memory we exclude any lists too long to be heaters (eg the fan list!), 
+        //  assume values are max 5 chars since that is the most we need for a heater setting 
+        //  '123.4', a percentage, or the word 'false'. ;-)
 
+        // determine how many values we have, and create values[] array for them
         byte num_values = jtokens[i+1].size;
         char values[num_values][6];
-        
+
+        // Step through each value in turn
         for( int idx=0; idx < num_values; idx++ )
         {
-          // Load the corresponding values into an array
+          // Load the corresponding value into an array
           size_t value_len = jtokens[i+2+idx].end-jtokens[i+2+idx].start;
           if (value_len > 5) value_len = 5;
           memcpy(values[idx],json + jtokens[i+2+idx].start,value_len);
           values[idx][value_len] = '\0';
         } 
 
+        // Now handle the Json keys that correspond to value lists.
         if (strcmp_P(result, PSTR("heaters")) == 0)
         {
           for( int idx=0; idx < num_values; idx++) 
@@ -721,12 +741,15 @@ bool jsonparser()
     }
   }
   
-  if (debug) Serial.print(F("freeMemory post = "));
-  if (debug) Serial.println(freeMemory());
+  #ifdef DEBUG
+    Serial.print(F("freeMemory post = "));
+    Serial.println(freeMemory());
+  #endif
 
-  // Finished processing
+  // Finished processing, kill the activity LED
   analogWrite(LED, 0);
 
+  // If we get here we have recieved a valid Json response from the printer
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
   if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
   
@@ -747,8 +770,8 @@ void loop(void)
   // and waits for an answer for a predefined period before repeating the request.
   //
   // All responses are processed asap, if a potential Json start is detected '{' 
-  // then a 300ms loop looks to read all ther remaining data as fast as possible into a buffer.
-  // This read loop finishes when it either detects the terminator '}' or times out.
+  // then a fast loop reads the following data as fast as possible into a buffer and 
+  // finishes when it either detects the terminator '}' or times out.
   // Any apparently viable json packets captured are then passed to the Json parser function.
   //
   // Other incoming characters that are not part of any json object are dropped
@@ -788,36 +811,47 @@ void loop(void)
   // or fail if we either timeout (default 300ms) or hit the maximum length
   
   index = 0;
+  int nest = 0; //measure nesting of json braces, nest=1 at top level
   char incoming = '{'; 
   timeout = millis() + JSONWINDOW; // reset timeout and look for rest of data
 
-  while (incoming != '}') 
+  while ((incoming != '}') || (nest > 1)) 
   {
     if (incoming != -1) 
     {
       json[index] = incoming;
       index++;
     }
+    
+    if (incoming == '{') nest++;
+    if (incoming == '}') nest--;
+    
     if (index > jsonSize) 
     {
       index = 0;
-      if (debug) Serial.println(F("Object too large"));
+      #ifdef DEBUG
+        Serial.println(F("Object too large"));
+      #endif
       break;
     }
     if (millis() > timeout)
     {
       index = 0;
-      if (debug) Serial.println(F("Timeout reading Object"));
+      #ifdef DEBUG 
+        Serial.println(F("Timeout reading Object"));
+      #endif
       break;
     }
     handlebutton();
     incoming = Serial.read();
-  } // no delay in this loop, clear the incoming buffer asap.
+  } // loop without any delay(),  clear the incoming buffer asap.
   
   if (index == 0)
   {
-    if (debug) Serial.println(F("No valid Json to process"));
-    return;  // no new input, so skip parsing or updating display, go back to requesting
+    #ifdef DEBUG
+      Serial.println(F("No valid Json to process"));
+    #endif
+    return;  // no new input, skip parsing or updating display, go back to requesting
   }
   else
   {
@@ -827,15 +861,15 @@ void loop(void)
 
   // Now the hard part.. parsing json
   //  reset the fail counter on success, loop again on failure
-  
   if (jsonparser()) noreply = 0; else return;
  
-  if ( screensave ) // handle screensave mode, if enabled
+  // handle screensave mode if enabled
+  if ( screensave )
   { 
-    // Sleep the screen when firmware reports PSU off
+    // Sleep the screen when firmware reports PSU off but screen is still on
     if (( printerstatus == 'O') && screenpower) screensleep();
  
-    // Wake screen when printer regains power
+    // Wake screen when printer regains power and the screen is currently off
     if (( printerstatus != 'O') && !screenpower) screenwake();
   }
 
@@ -843,8 +877,7 @@ void loop(void)
   // First update brightness level as needed (returns true if screen is on, false if blank) 
   // Test if we have had a response during this requestcycle
   // Determine whether we are in standby mode
-  // Only update the display if needed
-  
+  // Only update the display if needed 
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
   // Start the next Json request cycle
