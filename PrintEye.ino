@@ -6,7 +6,7 @@
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 */
 
-//#define DEBUG
+// #define DEBUG
 
 // FONT reference
 // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
@@ -52,11 +52,6 @@
 #define HEATERS 5       // Bed + Up to 4 extruders
 #define JSONWINDOW 500; // How many ms we allow for the rest of the object to arrive after the '{' is recieved
 
-// gcodes
-#define REQUESTCMD M408 S0
-#define PAUSECMD   M25
-#define RESUMECMD  M24
-
 // U8x8 Contructors for my displays and wiring
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 U8X8_SSD1306_128X64_NONAME_SW_I2C LOLED(/* clock=*/ SCK1, /* data=*/ SDA1, /* reset=*/ U8X8_PIN_NONE);   // Left OLED
@@ -67,7 +62,7 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* re
 
 // During debug I enable both of the following to dump out debug info and monitor the free memory during runtime.
 #ifdef DEBUG 
-#include "MemoryFree.h" // Taken from https://playground.arduino.cc/Code/AvailableMemory/
+  #include "MemoryFree.h" // Taken from https://playground.arduino.cc/Code/AvailableMemory/
 #endif
 
 // Incoming data
@@ -141,6 +136,9 @@ void setup()
 
   #ifdef DEBUG
     Serial.println(F("Debug Enabled"));
+    Serial.println();
+    Serial.println(F("Try: {\"status\":\"I\",\"printeye_interval\":5000,\"printeye_maxfail\":-1}"));
+    Serial.println();
   #endif
   
   // Set all heater values to off by default.
@@ -515,24 +513,36 @@ void handlebutton()
     if (pausetimer != 0) 
     { 
       analogWrite(LED, 0);
+      #ifdef DEBUG
+        Serial.println(F("Pausetimer reset"));
+      #endif
       pausetimer = 0;
     }
     return; 
   }
-  else
+  else if ((printerstatus == 'P') || (printerstatus == 'A'))
   {
-    // Button is pressed 
+    // Button is pressed while printing or paused
     analogWrite(LED,255); // led always on full while pause pressed
-    if (pausetimer == 0) pausetimer = millis(); // start timer as needed
+    // start timer as needed
+    if (pausetimer == 0) 
+    { 
+      pausetimer = millis();
+      #ifdef DEBUG 
+        Serial.println(F("Pausetimer Started")); 
+      #endif
+    }
 
-    if ((pausetimer + pausecontrol) > millis()) 
+    // When timer expires take action
+    if (millis() > (pausetimer + pausecontrol)) 
     {
       // Button held down for timeout; send commands as appropriate;
-      if (printerstatus == 'P') Serial.println(F("PAUSECODE"));
-      if (printerstatus == 'A') Serial.println(F("RESUMECODE"));
-      pausetimer = millis(); // reset timer (eg cmd repeats on each timer timeout until button released)
+      if (printerstatus == 'P') Serial.println(F("M25"));
+      if (printerstatus == 'A') Serial.println(F("M24"));
+      pausetimer = millis(); // reset timer
     }
   }
+  else {} //nothing to do if printer status is not paused or printing
 }
 
 
@@ -555,6 +565,7 @@ bool jsonparser()
   static jsmntok_t jtokens[MAXTOKENS];  // Tokens
   static jsmn_parser jparser; // Instance
   jsmn_init(&jparser); // Initialise json parser instance
+  
 
   #ifdef DEBUG 
     Serial.print(F("freeMemory pre = "));
@@ -565,9 +576,9 @@ bool jsonparser()
     Serial.println(index);
   #endif
 
-  // blink 
+  // blink LED while processing
   analogWrite(LED, activityled);
-
+  
   // Parse the Json
   int parsed = jsmn_parse(&jparser, json, index+1, jtokens, MAXTOKENS);
 
@@ -581,6 +592,7 @@ bool jsonparser()
     #ifdef DEBUG 
       Serial.println(F("Not a Json Object"));
     #endif
+    analogWrite(LED, 0);
     return(false);
   }
 
@@ -589,6 +601,7 @@ bool jsonparser()
     #ifdef DEBUG 
       Serial.println(F("Empty Json Object"));
     #endif
+    analogWrite(LED, 0);
     return(false);
   }
 
@@ -743,13 +756,13 @@ bool jsonparser()
     Serial.println(freeMemory());
   #endif
 
-  // Finished processing, kill the activity LED
-  analogWrite(LED, 0);
-
   // If we get here we have recieved a valid Json response from the printer
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
   if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
-  
+
+  // kill the activity LED
+  analogWrite(LED, 0); 
+
   return(true);  // we have processed a valid block, does not assert whether data has been updated
 }
 
@@ -781,7 +794,7 @@ void loop(void)
   jsonstart = false;
   do 
   {
-    Serial.println(F("REQUESTCMD"));
+    Serial.println(F("M408 S0"));
     noreply++; // Always assume the request will fail, jsonpaser() call resets the count on success
     if (maxfail != -1) {
       // once max number of failed requests is reached, show 'waiting for printer'
@@ -859,7 +872,7 @@ void loop(void)
   // Now the hard part.. parsing json
   //  reset the fail counter on success, loop again on failure
   if (jsonparser()) noreply = 0; else return;
- 
+  
   // handle screensave mode if enabled
   if ( screensave )
   { 

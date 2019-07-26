@@ -23,8 +23,8 @@ standby
 {"printeye_brightness":255}
 {"printeye_screensave":true}
 {"printeye_screensave":false}
-{"printeye_allowpause":true}
-{"printeye_allowpause":false}
+{"printeye_pausecontrol":0}
+{"printeye_pausecontrol":500}
 {"printeye_activityled":0}
 {"printeye_activityled":64}
 {"printeye_activityled":255}
