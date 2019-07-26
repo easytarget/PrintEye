@@ -17,19 +17,19 @@
 // https://duet3d.dozuki.com/Wiki/Gcode#Section_M118_Send_Message_to_Specific_Target
 // https://reprap.org/forum/read.php?416,830988
 
-// Maybe useful for a 3.3v arduino with a 16Mhz cristal. Nb; affects serial baud rate..
+// Following might be useful for a 3.3v arduino with a 16Mhz cristal. Nb; affects serial baud rate..
 // power&clock divider lib: https://arduino.stackexchange.com/a/5414
 //#include <avr/power.h>
-// needs enabling in setup too.
+// also see the setup() function; where it needs enabling.
 
 #include <Arduino.h>
 #include <U8x8lib.h>
 #include "jsmn.h"
 
 // Pinout
-#define LED 9         // pwm capable O/P for the led
-#define BUTTON 10     // pause button pin
-#define DEBOUNCE 150  // debounce+fatfinger delay for button in ms
+#define LED 9          // pwm capable O/P for the led
+#define BUTTON 10      // pause button pin
+#define PAUSETIME 200  // debounce+fatfinger delay for button in ms
 
 
 // I2C Left display
@@ -104,7 +104,7 @@ byte heaterstatus[HEATERS];
 int heaterinteger[HEATERS];
 byte heaterdecimal[HEATERS];
 
-// counter for the pause button
+// A time store for the pause button
 unsigned long pausetimer = 0;
 
 
@@ -524,11 +524,12 @@ void handlebutton()
     analogWrite(LED,255); // led always on full while pause pressed
     if (pausetimer == 0) pausetimer = millis(); // start timer as needed
 
-    if ((pausetimer + DEBOUNCE) > millis()) 
+    if ((pausetimer + PAUSETIME) > millis()) 
     {
       // Button held down for timeout; send commands as appropriate;
       if (printerstatus == 'P') Serial.println(F("PAUSECODE"));
       if (printerstatus == 'A') Serial.println(F("RESUMECODE"));
+      pausetimer = millis(); // reset timer (eg cmd repeats on each timer timeout until button released)
     }
   }
 }
@@ -742,8 +743,8 @@ bool jsonparser()
 
 void loop(void)
 {
-  // The core of this is a loop that loops while periodically sending M408 S0 requests 
-  // and waiting for an answer for 1s (or whatever is configured).
+  // The core of this is a nested loop that periodically sends M408 S0 requests 
+  // and waits for an answer for a predefined period before repeating the request.
   //
   // All responses are processed asap, if a potential Json start is detected '{' 
   // then a 300ms loop looks to read all ther remaining data as fast as possible into a buffer.
@@ -761,7 +762,7 @@ void loop(void)
   do 
   {
     Serial.println(F("REQUESTCMD"));
-    noreply++; // Always assume the request will fail, jsonpaser() resets the count on success
+    noreply++; // Always assume the request will fail, jsonpaser() call resets the count on success
     if (maxfail != -1) {
       // once max number of failed requests is reached, show 'waiting for printer'
       if ( noreply == maxfail ) commwait();
@@ -838,12 +839,13 @@ void loop(void)
     if (( printerstatus != 'O') && !screenpower) screenwake();
   }
 
-  // Update Screen 
-  //.. but first update brightness level as needed (returns true if screen is on, false if blank) 
-  // Then test if we have had a response during this requestcycle, and 
-  // Determine whether we are in standby mode, and only update the display if needed
+  // Update Screen!
+  // First update brightness level as needed (returns true if screen is on, false if blank) 
+  // Test if we have had a response during this requestcycle
+  // Determine whether we are in standby mode
+  // Only update the display if needed
   
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
-  // Start the next request cycle
+  // Start the next Json request cycle
 }
