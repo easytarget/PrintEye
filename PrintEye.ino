@@ -6,7 +6,7 @@
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 */
 
-#define DEBUG
+//#define DEBUG
 
 // FONT reference
 // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
@@ -31,8 +31,6 @@
 // Pinout
 #define LED 9          // pwm capable O/P for the led
 #define BUTTON 10      // pause button pin
-#define PAUSETIME 200  // debounce+fatfinger delay for button in ms
-
 
 // I2C Left display
 #define SDA1 A2
@@ -82,9 +80,9 @@ static int index;               // length of the response
 // Primary Settings (can also be set via Json messages to serial port, see README)
 int updateinterval = 1000;     // how many ~1ms loops we spend looking for a response after M408
 int maxfail = 6;               // max failed requests before entering comms fail mode (-1 to disable)
-bool screensave = true;         // Go into screensave when controller reports PSU off status 'O'
+bool screensave = true;        // Go into screensave when controller reports PSU off (status 'O')
 byte bright = 255;             // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
-bool allowpause = true;        // Allow the button to trigger a pause event
+int pausecontrol = 200;        // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
 byte activityled = 128;        // Activity LED brightness (0 to disable)
 char ltext[11] = "SHOWSTATUS"; // Left status line for the idle display (max 10 chars)
 char rtext[11] = "          "; // Right status line for the idle display (max 10 chars)
@@ -510,11 +508,11 @@ void handlebutton()
   
   // Process the button state and send pause/resume as appropriate
   
-  if (!allowpause) return; // fast exit if pause disabled 
+  if (pausecontrol == 0) return; // fast exit if pause disabled 
   
   if (!digitalRead(BUTTON))
   {
-    // button not pressed, reset pause timer and exit asap
+    // button not pressed, reset pause timer if needed and exit asap
     if (pausetimer != 0) 
     { 
       analogWrite(LED, 0);
@@ -528,7 +526,7 @@ void handlebutton()
     analogWrite(LED,255); // led always on full while pause pressed
     if (pausetimer == 0) pausetimer = millis(); // start timer as needed
 
-    if ((pausetimer + PAUSETIME) > millis()) 
+    if ((pausetimer + pausecontrol) > millis()) 
     {
       // Button held down for timeout; send commands as appropriate;
       if (printerstatus == 'P') Serial.println(F("PAUSECODE"));
@@ -659,9 +657,9 @@ bool jsonparser()
         {
           if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; else screensave = false;
         }
-        else if( strcmp_P(result, PSTR("printeye_allowpause")) == 0 )
+        else if( strcmp_P(result, PSTR("printeye_pausecontrol")) == 0 )
         {
-          if( strcmp_P(value, PSTR("true")) == 0) allowpause = true; else allowpause = false;
+          pausecontrol = atoi(value);
         }
         else if( strcmp_P(result, PSTR("printeye_activityled")) == 0 )
         {

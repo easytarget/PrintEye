@@ -13,11 +13,13 @@
 * Sleep mode when controller reports status 'O' (PSU off, configurable)
 * Activity LED that blinks on incoming data (brightness configurable)
 * Pause button with 200ms hold-down/fatfinger delay. (enable/disable configurable)
+* Correctly reports if the selected heater state, shows if selected heater is in a fault state.
 
-## Requirements 
-* None really; you need to be able to program your target and a bit competant at assembling stuff, but all the libraries needed are included.
+
+## Rquirements 
+* None really; you need to be able to program your target and a bit competent at assembling stuff, but all the libraries needed are included.
  * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch
- * As is the MemoryFree lib used during debug (see comments and #define DEBUG in code)
+ * as is the Arduino MemoryFree lib used during debug (see comments and '#define DEBUG' in code)
 
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
@@ -29,13 +31,16 @@ The Jsmn library is used, which provides some robustness in processing key/value
 * `{"printeye_brightness":byte}`
  * Brightness for display, 0-255, 0 is off
 * `{"printeye_powersave":boolean}`
- * If true enter sleep mode when printer status = 'O'
-* `{"printeye_allowpause":boolean}`
- * If true allow the button to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
+ * If true enter sleep mode when printer status = 'O' (Vin off)
+* `{"printeye_pausecontrol":integer}`
+ * Number of Ms the button must be held to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
+ * Set to zero to disable the pause button
+ * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
 * `{"printeye_activityled":byte}`
  * Brightness level (0-255) for the activity LED, set to 0 to disable
 * `{"printeye_idle_left":string}` & `{"printeye_idle_right":string}`
- * Left and right panel text to be displayed in Idle mode, max 10 characters
+ * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters
+ * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
 
 ![Prototype](./images/printeye-prototype-1.jpg)
 
