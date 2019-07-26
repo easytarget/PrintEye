@@ -12,12 +12,12 @@
  * timeout, update speed, brightness, and more
 * Sleep mode when controller reports status 'O' (PSU off, configurable)
 * Activity LED that blinks on incoming data (brightness configurable)
-* Pause button with 200ms hold-down/fatfinger delay. (enable/disable configurable)
-* Correctly reports if the selected heater state, shows if selected heater is in a fault state.
+* Pause button with 200ms hold-down/fatfinger delay. (configurable, disableable)
+* Correctly reports heater settings, shows if selected heater is in a fault state.
 
 
 ## Rquirements 
-* None really; you need to be able to program your target and a bit competent at assembling stuff, but all the libraries needed are included.
+* None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included.
  * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch
  * as is the Arduino MemoryFree lib used during debug (see comments and '#define DEBUG' in code)
 

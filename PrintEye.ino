@@ -257,8 +257,6 @@ void splashscreen()
 
 void commwait()
 {
-  int preservebright = bright;
-  if (bright == 0) bright = 1; // show 'waiting' even if 'blank'
   goblank();
   
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
@@ -277,13 +275,14 @@ void commwait()
   // screen on (even in screensave mode)
   LOLED.setPowerSave(false); 
   ROLED.setPowerSave(false);
+
+  int preservebright = bright;
+  if (bright == 0) bright = 1; // display even when the screen is normally blanked
   unblank();
-  
   bright = preservebright;
 }
 
-
-// Set the non-linear contrast/brightness level (if supported by display)
+// Set the (non-linear) contrast/brightness level for supported displays
 
 bool setbrightness()
 { 
