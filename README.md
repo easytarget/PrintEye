@@ -53,7 +53,8 @@ The Jsmn library is used, which provides some robustness in processing key/value
 * You will need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with 16Mhz/3.3v and the underclock option discussed in the `setup()` section of the sketch. Display updates will be even slower for this, and you will need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
 
 ## Enhancements: 
-* Heater Errors: Show, icon and put 'Error' in the status line.
+* Hurrah; I emptied this list
+* The idea is to keep this simple, so I dont inted to add things here!
 
 ### For Later/Never
 * EEPROM for settings
