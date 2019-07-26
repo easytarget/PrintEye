@@ -29,8 +29,9 @@ standby
 {"printeye_activityled":64}
 {"printeye_activityled":255}
 {"printeye_msg_left":" Sunflower","printeye_msg_right":" 10.0.0.40"}
-{"printeye_msg_left":"          "}
-{"printeye_msg_right":"          "}
+{"printeye_msg_left":"SHOWSTATUS","printeye_msg_right":"          "}
+{"printeye_msg_left":"   LEFT   "}
+{"printeye_msg_right":"  RIGHT   "}
 
 
 logging M408 S0
