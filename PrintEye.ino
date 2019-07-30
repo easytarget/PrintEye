@@ -77,7 +77,7 @@ int updateinterval = 1000;     // how many ~1ms loops we spend looking for a res
 int maxfail = 6;               // max failed requests before entering comms fail mode (-1 to disable)
 bool screensave = true;        // Go into screensave when controller reports PSU off (status 'O')
 byte bright = 255;             // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
-int pausecontrol = 200;        // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
+int pausecontrol = 333;        // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
 byte activityled = 128;        // Activity LED brightness (0 to disable)
 char ltext[11] = "SHOWSTATUS"; // Left status line for the idle display (max 10 chars)
 char rtext[11] = "          "; // Right status line for the idle display (max 10 chars)
@@ -360,8 +360,11 @@ void updatedisplay()
   if ((printerstatus == 'P') || (printerstatus == 'A') || 
       (printerstatus == 'D') || (printerstatus == 'R'))
   { // Only display progress during printing states
+    ROLED.print(F("  "));
+    if ( done < 100 ) ROLED.print(F(" "));
+    if ( done < 10 ) ROLED.print(F(" "));
     ROLED.print(done);
-    ROLED.print(F("%  "));
+    ROLED.print(F("%"));
   }
   else if ((printerstatus != 'I') && (printerstatus != 'O')) 
   {
@@ -502,12 +505,11 @@ void updatedisplay()
 
 void handlebutton()
 {
-  
   // Process the button state and send pause/resume as appropriate
   
   if (pausecontrol == 0) return; // fast exit if pause disabled 
   
-  if (!digitalRead(BUTTON))
+  if (digitalRead(BUTTON)) // button is active low.
   {
     // button not pressed, reset pause timer if needed and exit asap
     if (pausetimer != 0) 
@@ -667,7 +669,8 @@ bool jsonparser()
         }
         else if( strcmp_P(result, PSTR("printeye_screensave")) == 0 )
         {
-          if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; else screensave = false;
+          if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; 
+          else { screensave = false; if (!screenpower) screenwake(); } // force screen on.
         }
         else if( strcmp_P(result, PSTR("printeye_pausecontrol")) == 0 )
         {
