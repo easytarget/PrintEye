@@ -21,6 +21,13 @@
  * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch
  * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code)
 
+## Build
+* Only exists as a prototype at present; connected to my6 laptop via a FTDI adapter
+* Target Schematic looks like this:
+![./images/schematic.png](./images/Schematic-thumb.jpg)
+ * Note level shifters (3v3 reference source is done via resistor divider)
+ * Final design will use a standalone cpu, but for now a teensy board suffices.
+
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
 * `{"printeye_interval":integer}`
