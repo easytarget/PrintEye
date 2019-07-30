@@ -1,7 +1,7 @@
 ## Little Eyes For a printer..
 # Temperature display for RepRap firmware (eg Duet)
 
-![Prototype](./images/printeye-prototype.jpg)
+![Prototype](./images/prototype.jpg)
 
 * Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing)
  * This is it.. the displays are less then an 2cm in size and I will not overload them with info
@@ -41,8 +41,6 @@ The Jsmn library is used, which provides some robustness in processing key/value
 * `{"printeye_idle_left":string}` & `{"printeye_idle_right":string}`
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
-
-![Prototype](./images/printeye-prototype-1.jpg)
 
 ## Caveats:
 * Software I2C is slow. 

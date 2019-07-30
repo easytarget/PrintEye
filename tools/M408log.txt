@@ -9,11 +9,11 @@ PrintEye Helpers:
 defaults: 
     interval:1000
      maxfail:6
-   powersave:true
+   powersave:333
   brightness:255
   allowpause:true
  activityled:128
-   idle_text:" Idle     ","          "
+   idle_text:"SHOWSTATUS","          "
 standby
 {"printeye_interval":10000}
 {"printeye_maxfail":-1}
