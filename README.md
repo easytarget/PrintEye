@@ -19,15 +19,15 @@
 ## Rquirements 
 * None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included.
  * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch
- * as is the Arduino MemoryFree lib used during debug (see comments and '#define DEBUG' in code)
+ * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code)
 
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
 * `{"printeye_interval":integer}`
- * Set the approximate interval in Ms that PrintEye spends waiting for a M408 response before retrying
+ * Set the approximate interval in Ms that PrintEye spends waiting for a `M408` response before retrying
 * `{"printeye_maxfail":integer}`
- * Maximum number of failures before displaying 'Waitinf for Printer"
- * '-1' to prevent entering 'Waiting for Printer' state
+ * Maximum number of failures before displaying `Waiting for Printer`
+ * `-1` to prevent entering `Waiting for Printer` state
 * `{"printeye_brightness":byte}`
  * Brightness for display, 0-255, 0 is off
 * `{"printeye_powersave":boolean}`
@@ -52,7 +52,7 @@ The Jsmn library is used, which provides some robustness in processing key/value
 
 ## Enhancements: 
 * Hurrah; I emptied this list
-* The idea is to keep this simple, so I dont inted to add things here!
+* The idea is to keep this simple, so I dont intend to add things here!
 
 ### For Later/Never
 * EEPROM for settings
