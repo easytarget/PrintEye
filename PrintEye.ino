@@ -1,3 +1,4 @@
+
 /*
   Printer Eyes; a simple twin-panel display for reprap firmware with a spare serial port (eg. Duet)
   - performs a small, display-only, subset of panelDue functionality, uses same comms channel and port
@@ -514,7 +515,7 @@ void handlebutton()
     // button not pressed, reset pause timer if needed and exit asap
     if (pausetimer != 0) 
     { 
-      analogWrite(LED, 0);
+      analogWrite(LED, 0); // led off
       #ifdef DEBUG
         Serial.println(F("Pausetimer reset"));
       #endif
@@ -522,14 +523,21 @@ void handlebutton()
     }
     return; 
   }
+  
+  else if (pausetimer == -1) 
+  {
+    // command has been sent, ensure LED off and stop processing
+    analogWrite(LED,0); // led off
+    return; 
+  }
+  
   else if ((printerstatus == 'P') || (printerstatus == 'A'))
   {
     // Button is pressed while printing or paused
-    analogWrite(LED,255); // led always on full while pause pressed
-    // start timer as needed
     if (pausetimer == 0) 
     { 
-      pausetimer = millis();
+      pausetimer = millis(); // start timer as needed
+      analogWrite(LED,255); // led on full
       #ifdef DEBUG 
         Serial.println(F("Pausetimer Started")); 
       #endif
@@ -541,10 +549,9 @@ void handlebutton()
       // Button held down for timeout; send commands as appropriate;
       if (printerstatus == 'P') Serial.println(F("M25"));
       if (printerstatus == 'A') Serial.println(F("M24"));
-      pausetimer = millis(); // reset timer
+      pausetimer = -1; // -1 means we have sent the command
     }
   }
-  else {} //nothing to do if printer status is not paused or printing
 }
 
 
@@ -578,8 +585,8 @@ bool jsonparser()
     Serial.println(index);
   #endif
 
-  // blink LED while processing
-  analogWrite(LED, activityled);
+  // blink LED while processing and pause button not pressed
+  if (pausetimer == 0) analogWrite(LED, activityled);
   
   // Parse the Json
   int parsed = jsmn_parse(&jparser, json, index+1, jtokens, MAXTOKENS);
@@ -594,7 +601,7 @@ bool jsonparser()
     #ifdef DEBUG 
       Serial.println(F("Not a Json Object"));
     #endif
-    analogWrite(LED, 0);
+    if (pausetimer == 0) analogWrite(LED, 0);
     return(false);
   }
 
@@ -603,7 +610,7 @@ bool jsonparser()
     #ifdef DEBUG 
       Serial.println(F("Empty Json Object"));
     #endif
-    analogWrite(LED, 0);
+    if (pausetimer == 0) analogWrite(LED, 0);
     return(false);
   }
 
@@ -763,8 +770,8 @@ bool jsonparser()
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
   if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
 
-  // kill the activity LED
-  analogWrite(LED, 0); 
+  // kill the activity LED unless pause button pressed
+  if (pausetimer == 0) analogWrite(LED, 0); 
 
   return(true);  // we have processed a valid block, does not assert whether data has been updated
 }
@@ -868,8 +875,8 @@ void loop(void)
   }
   else
   {
-    json[index] = '}'; // terminate the json
-    json[index+1] = '\0'; // terminate the json
+    json[index] = '}'; // terminate 
+    json[index+1] = '\0'; // properly
   }
 
   // Now the hard part.. parsing json
