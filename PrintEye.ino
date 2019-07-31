@@ -151,20 +151,16 @@ void setup()
     heaterinteger[a] = 0;
     heaterdecimal[a] = 0;
   }
-  digitalWrite(LED, false);
-  
 
   // Displays
   LOLED.begin();
-  LOLED.setFlipMode(1);
+  LOLED.setFlipMode(1);   // as needed
   ROLED.begin();
-  ROLED.setFlipMode(1);
+  ROLED.setFlipMode(1);   // as needed
   goblank();
   splashscreen();         // Splash Screen
   delay(2400);            // For 2.5 seconds
-  analogWrite(LED, activityled); // flash LED
-  delay(100);
-  analogWrite(LED, 0);
+  analogWrite(LED, 0);    // turn the led off
   screenclean();
 }
 
@@ -646,7 +642,7 @@ bool jsonparser()
         {
           char oldstatus = printerstatus;
           printerstatus = value[0];
-          if( ((oldstatus == 'I') || (oldstatus == 'O')) && ((printerstatus != 'O') || (printerstatus != 'O')) )
+          if( ((oldstatus == 'I') || (oldstatus == 'O')) && ((printerstatus != 'I') && (printerstatus != 'O')) )
           {
             // we are leaving Idle mode, clear idletext
             LOLED.clearLine(6);LOLED.clearLine(7);
