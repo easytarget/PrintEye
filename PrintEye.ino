@@ -128,7 +128,7 @@ void setup()
   // The button and the LED
   pinMode(LED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
-  digitalWrite(LED, true); // blip the LED
+  analogWrite(LED, activityled); // blip the LED
 
   // Some serial is needed
   Serial.begin(57600); // DUET default is 57600,
@@ -649,6 +649,7 @@ bool jsonparser()
         else if( strcmp_P(result, PSTR("tool")) == 0 )
         {
           toolhead = atoi(value);
+          if ((toolhead < 0) || (toolhead >= HEATERS)) toolhead = 0;
         }
         else if( strcmp_P(result, PSTR("fraction_printed")) == 0 )
         {
@@ -680,7 +681,7 @@ bool jsonparser()
         {
           activityled = atoi(value);
         }
-        else if( strcmp_P(result, PSTR("printeye_msg_left")) == 0 )
+        else if( strcmp_P(result, PSTR("printeye_lmsg")) == 0 )
         {
           byte s = strlen(value);
           for( byte a = 0; a < 10; a++ ) 
@@ -689,7 +690,7 @@ bool jsonparser()
           }
           ltext[10]='\0';
         }
-        else if (strcmp_P(result, PSTR("printeye_msg_right")) == 0)
+        else if (strcmp_P(result, PSTR("printeye_rmsg")) == 0)
         {
           byte s = strlen(value);
           for( byte a = 0; a < 10; a++ ) 
@@ -769,6 +770,19 @@ bool jsonparser()
   return(true);  // we have processed a valid block, does not assert whether data has been updated
 }
 
+// Send to Printer with a checksum
+
+void sendwithcsum(char cmd[10])
+{
+  int cs = 0;
+  for(int i = 0; cmd[i] != '*' && cmd[i] != NULL; i++)
+   cs = cs ^ cmd[i];
+  cs &= 0xff;  // Defensive programming...
+  Serial.print(cmd);
+  Serial.print("*");
+  Serial.print(cs);
+}
+
 
 //   _                      
 //  | |    ___   ___  _ __  
@@ -826,7 +840,7 @@ void loop(void)
   index = 0;
   int nest = 0; //measure nesting of json braces, nest=1 at top level
   char incoming = '{'; 
-  timeout = millis() + JSONWINDOW; // reset timeout and look for rest of data
+  unsigned long jtimeout = millis() + JSONWINDOW; // another timeout while recieving the json data
 
   while ((incoming != '}') || (nest > 1)) 
   {
@@ -847,7 +861,7 @@ void loop(void)
       #endif
       break;
     }
-    if (millis() > timeout)
+    if (millis() > jtimeout)
     {
       index = 0;
       #ifdef DEBUG 
@@ -893,5 +907,7 @@ void loop(void)
   // Only update the display if needed 
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
-  // Start the next Json request cycle
+  // Snooze until timeout is reached (we usually complete a cycle within the timeout and need to pause here)
+  if (millis() < timeout) delay(millis() - timeout);
+
 }
