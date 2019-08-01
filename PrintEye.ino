@@ -126,6 +126,12 @@ void setup()
   //     the Serial port clock is affected by this change.
   // clock_prescale_set(clock_div_2);
 
+  // Get the LED's initialised  asap, begin() will also blank them
+  LOLED.begin();
+  LOLED.setFlipMode(1);   // as needed
+  ROLED.begin();
+  ROLED.setFlipMode(1);   // as needed
+
   // The button and the LED
   pinMode(LED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
@@ -153,11 +159,6 @@ void setup()
   }
 
   // Displays
-  LOLED.begin();
-  LOLED.setFlipMode(1);   // as needed
-  ROLED.begin();
-  ROLED.setFlipMode(1);   // as needed
-  goblank();
   splashscreen();         // Splash Screen
   delay(2400);            // For 2.5 seconds
   analogWrite(LED, 0);    // turn the led off
@@ -319,6 +320,7 @@ void updatedisplay()
   // There is no screenbuffer (memory, again) so we overdraw every active screen element 
   // on each update, and have logic to blank areas when they are inactive.
   // - This all looks very cumbersome in code, cest'la'vie!
+  // - We also regularly call the pause button handler
 
   int bedset = 0;
   int toolset = 0;
@@ -367,6 +369,8 @@ void updatedisplay()
   {
     ROLED.print(F("          ")); 
   }
+
+  handlebutton(); // catch the pause button
 
   if (heaterstatus[0] == 1) bedset = heaterstandby[0];
   else if (heaterstatus[0] == 2) bedset = heateractive[0];
@@ -417,7 +421,9 @@ void updatedisplay()
     ROLED.print(toolset);
     ROLED.print(char(176)); // degrees symbol
   }
-
+  
+  handlebutton(); // catch the pause button
+  
   // bed and head text
   LOLED.setCursor(10, 0);
   LOLED.print(F("Bed"));
@@ -465,6 +471,8 @@ void updatedisplay()
     ROLED.setCursor(14, 0);
     ROLED.print(F("T")); // down arrow to line (looks a bit like a hotend)
   }
+
+  handlebutton(); // catch the pause button
 
   // The main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
@@ -911,6 +919,10 @@ void loop(void)
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
   // Snooze until timeout is reached (we usually complete a cycle within the timeout and need to pause here)
-  if (millis() < timeout) delay(millis() - timeout);
+  if (millis() < timeout)
+  {
+    handlebutton(); // catch the pause button
+    delay(5); // wait a bit
+  }
 
 }
