@@ -1,7 +1,7 @@
 ## Little Eyes For a printer..
 # Temperature display for RepRap firmware (eg Duet)
 
-![Prototype](./images/prototype.jpg)
+![Prototype](./images/prototype-run.jpg)
 
 * Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing)
  * This is it.. the displays are less then an 2cm in size and I will not overload them with info
@@ -23,7 +23,7 @@
 
 ## Build
 ![Thumb](./images/Schematic-thumb.png "See hi-res image below")
-* Only exists as a prototype at present; connected to my laptop via a FTDI adapter
+* Only exists as a prototype at present; It has, however been proved on my printer; image at top is an "action Shot" :-)
 * Target Schematic is [Here](./images/Schematic.png)
  * Note; 'Proper' 2n7000 based level shifters are used to protect Duet. The 3v3 reference source is done via a simple resistor divider.
  * Final design will use a standalone cpu, but for now a teensy board suffices.

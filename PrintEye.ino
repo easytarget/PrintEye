@@ -551,8 +551,8 @@ void handlebutton()
     if (millis() > (pausetimer + pausecontrol)) 
     {
       // Button held down for timeout; send commands as appropriate;
-      if (printerstatus == 'P') Serial.println(F("M25"));
-      if (printerstatus == 'A') Serial.println(F("M24"));
+      if (printerstatus == 'P') sendwithcsum("M25");
+      if (printerstatus == 'A') sendwithcsum("M24");
       pausetimer = -1; // -1 means we have sent the command
     }
   }
@@ -783,7 +783,7 @@ bool jsonparser()
 
 // Send to Printer with a checksum
 
-void sendwithcsum(char cmd[10])
+void sendwithcsum(char cmd[8])
 {
   int cs = 0;
   for(int i = 0; cmd[i] != '*' && cmd[i] != NULL; i++)
@@ -791,7 +791,7 @@ void sendwithcsum(char cmd[10])
   cs &= 0xff;  // Defensive programming...
   Serial.print(cmd);
   Serial.print("*");
-  Serial.print(cs);
+  Serial.println(cs);
 }
 
 
@@ -822,7 +822,8 @@ void loop(void)
   jsonstart = false;
   do 
   {
-    Serial.println(F("M408 S0"));
+    // Send the Magic command to ask for Json data (with checksum).
+    sendwithcsum("M408 S0");
     noreply++; // Always assume the request will fail, jsonpaser() call resets the count on success
     if (maxfail != -1) {
       // once max number of failed requests is reached, show 'waiting for printer'
