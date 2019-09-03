@@ -24,10 +24,8 @@
 ## Build
 ![Thumb](./images/Schematic-thumb.png "See hi-res image below")
 * Only exists as a prototype at present; It has, however been proved on my printer; image at top is an "action Shot" :-)
-* Target Schematic is [Here](./images/Schematic.png)
- * Note; 'Proper' 2n7000 based level shifters are used to protect Duet. The 3v3 reference source is done via a simple resistor divider.
- * Final design will use a standalone cpu, but for now a teensy board suffices.
- * PCB deign to follow; will mount displays in letterbox with CPU underneath.
+* Hardware and PCB design is complete: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
+ * A PCB design exists; needs to be prototyped on a breadboard first; then built.
 
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
