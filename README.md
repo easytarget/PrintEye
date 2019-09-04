@@ -14,6 +14,7 @@
 * Activity LED that blinks on incoming data (brightness configurable)
 * Pause button with 200ms hold-down/fatfinger delay. (configurable, disableable)
 * Correctly reports heater settings, shows if selected heater is in a fault state.
+* Sends commands with checksum; defaults to 57600 baud and is plug-n-play with panelDue UART port
 
 
 ## Rquirements 
@@ -44,21 +45,27 @@ The Jsmn library is used, which provides some robustness in processing key/value
  * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
 * `{"printeye_activityled":byte}`
  * Brightness level (0-255) for the activity LED, set to 0 to disable
-* `{"printeye_idle_left":string}` & `{"printeye_idle_right":string}`
- * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters
+* `{"printeye_lmsg":string}` & `{"printeye_rmsg":string}`
+ * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
 
 ## Caveats:
+* Memory is key here; the Json parser uses quite a bit of ram, and code space. The Displays and their library eat the rest. I've had to fight low program memory and ram to get this working acceptably.
+* Max json size = 500 bytes; or 86 [Jsmn tokens](https://github.com/zserge/jsmn#design).
+ * The current code cannot survive a sudden increase in size of M408 S0 responses (eg from a firmware update)
+ * Exceeding this causes the incoming Json to be ignored 
+ * These defaults are the result of considerable testing and debugging; they should be good for responses from a 4 extruder system with heated bed and enclosure
+ * When the OLED's corrupt and show artifacts.. you have increased these too far!
 * Software I2C is slow. 
  * Experimenting with an alternative (one HW + One SW) looked weird and unbalanced.
- * A I2C multiplexer would solve this, or using a chip (Mega256?) with dual hardware I2C, but add complexity
+ * An I2C multiplexer would solve this, or using a chip (Mega256?) with dual hardware I2C, both add complexity
  * I have tried to compensate for the slow redrawing by sequencing the order of updating screen elements; eg making the updates look more like animations.
-* The Json parser uses quite a bit of ram and cannot survive a sudden increase in size of M408 S0 responses (eg from a firmware update), currently they max out at 480 characters or so on a 4 extruder system, and I allow a maximum of 520 bytes for incoming data.
 * You will need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with 16Mhz/3.3v and the underclock option discussed in the `setup()` section of the sketch. Display updates will be even slower for this, and you will need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
 
 ## Enhancements: 
-* Hurrah; I emptied this list
-* The idea is to keep this simple, so I dont intend to add things here!
+* Hurrah; I (nearly) emptied this list; the idea is to keep this simple, so I dont intend to add things here!
+* Oh; Ok Then. WiFi Status. But some other functionality would need to go to squeeze it in since it's not part of the M408 response(s).
+* Displaying an Enclosure temp in place of tool might be useful (if I had an enclosure, that is).
 
 ### For Later/Never
 * EEPROM for settings

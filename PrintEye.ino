@@ -7,7 +7,9 @@
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 */
 
-// #define DEBUG
+// This gives useful debug on json processing; but eats a bit of memory..
+// only enable as needed.
+//#define DEBUG
 
 // FONT reference
 // https://github.com/olikraus/u8g2/wiki/fntgrpiconic
@@ -48,7 +50,7 @@
 // Heater settings are good for a 4 extruder system, this is a resource limit; display can handle up to 99 
 // - Each additional heater adds 8 bytes in global arrays, 4 additional tokens, 20 characters of extra Json
 //
-#define JSONSIZE 520    // Json incoming buffer size
+#define JSONSIZE 500    // Json incoming buffer size
 #define MAXTOKENS 86    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
 #define HEATERS 5       // Bed + Up to 4 extruders
 #define JSONWINDOW 500; // How many ms we allow for the rest of the object to arrive after the '{' is recieved
@@ -711,18 +713,18 @@ bool jsonparser()
           rtext[10]='\0';
         }
       }
-      else if( (jtokens[i+1].size > 0) && (jtokens[i+1].size <= HEATERS) )
+      else if( jtokens[i+1].size > 0 )
       {
         // Multiple value keys 
-        //  To save memory we exclude any lists too long to be heaters (eg the fan list!), 
-        //  assume values are max 5 chars since that is the most we need for a heater setting 
+        // Assume values are max 5 chars since that is the most we need for a heater setting 
         //  '123.4', a percentage, or the word 'false'. ;-)
 
         // determine how many values we have, and create values[] array for them
         byte num_values = jtokens[i+1].size;
-        char values[num_values][6];
+        if( num_values > HEATERS ) num_values = HEATERS; 
+        char values[num_values][6]; // array of reported values, max 5 digits +NULL to a value
 
-        // Step through each value in turn
+        // Step through each value in turn and populate the array
         for( int idx=0; idx < num_values; idx++ )
         {
           // Load the corresponding value into an array
