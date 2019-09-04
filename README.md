@@ -23,7 +23,7 @@
  * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code)
 
 ## Build
-![Thumb](./images/Schematic-thumb.png "See hi-res image below")
+![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
 * Only exists as a prototype at present; It has, however been proved on my printer; image at top is an "action Shot" :-)
 * Hardware and PCB design is complete: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
  * A PCB design exists; needs to be prototyped on a breadboard first; then built.
@@ -45,7 +45,7 @@ The Jsmn library is used, which provides some robustness in processing key/value
  * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
 * `{"printeye_activityled":byte}`
  * Brightness level (0-255) for the activity LED, set to 0 to disable
-* `{"printeye_lmsg":string}` & `{"printeye_rmsg":string}`
+* `{"printeye_lmsg":"string"}` & `{"printeye_rmsg":"string"}`
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
 
