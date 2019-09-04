@@ -65,8 +65,9 @@ The Jsmn library is used, which provides some robustness in processing key/value
 ## Enhancements: 
 * Hurrah; I (nearly) emptied this list; the idea is to keep this simple, so I dont intend to add things here!
 * Oh; Ok Then. WiFi Status. But some other functionality would need to go to squeeze it in since it's not part of the M408 response(s).
-* Displaying an Enclosure temp in place of tool might be useful (if I had an enclosure, that is).
+
 
 ### For Later/Never
+* Displaying an Enclosure temp on a cycle with bed temp.
 * EEPROM for settings
 * Investigate wether it is possible to multiplex the HW I2C bus (SCK) with IO pins and a couple of signal diodes to address one display or the other, or both for setup, clearing etc.
