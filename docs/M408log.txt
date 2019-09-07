@@ -1,37 +1,32 @@
 A good start when debugging/testing:
-{"printeye_interval":4000,"printeye_maxfail":-1}
-
-PrintEye Helpers:
-{"status":"I"}
-{"status":"O"}
-{"status":"B"}
+{"pe_rate":4000,"pe_fails":-1}
 
 defaults: 
-    interval:1000
-     maxfail:6
-  brightness:255
-  screensave:true
-pausecontrol:333
- activityled:128
+        rate:1000
+       fails:6
+      bright:255
+       saver:true
+       pause:333
+         led:128
    lmsg,rmsg:"SHOWSTATUS","          "
 
-{"printeye_interval":10000}
-{"printeye_maxfail":-1}
-{"printeye_maxfail":6}
-{"printeye_brightness":0}
-{"printeye_brightness":32}
-{"printeye_brightness":255}
-{"printeye_screensave":true}
-{"printeye_screensave":false}
-{"printeye_pausecontrol":0}
-{"printeye_pausecontrol":500}
-{"printeye_activityled":0}
-{"printeye_activityled":64}
-{"printeye_activityled":255}
-{"printeye_lmsg":" Sunflower","printeye_rmsg":" 10.0.0.40"}
-{"printeye_lmsg":"SHOWSTATUS","printeye_rmsg":"          "}
-{"printeye_lmsg":"   LEFT   "}
-{"printeye_rmsg":"  RIGHT   "}
+{"pe_rate":10000}
+{"pe_fails":-1}
+{"pe_fails":6}
+{"pe_bright":0}
+{"pe_bright":32}
+{"pe_bright":255}
+{"pe_saver":true}
+{"pe_saver":false}
+{"pe_pause":0}
+{"pe_pause":500}
+{"pe_led":0}
+{"pe_led":64}
+{"pe_led":255}
+{"pe_lmsg":" Sunflower","printeye_rmsg":" 10.0.0.40"}
+{"pe_lmsg":"SHOWSTATUS","printeye_rmsg":"          "}
+{"pe_lmsg":"   LEFT   "}
+{"pe_rmsg":"  RIGHT   "}
 
 
 logging M408 S0
