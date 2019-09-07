@@ -5,11 +5,11 @@
 
 * Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing)
  * This is it.. the displays are less then an 2cm in size and I will not overload them with info
-* Sends `M408 S0` requests for basic data and then proceses the Json reply
+* Sends `M408 S0` status requests to the controller and then proceses the Json reply
  * Uses the auxillary UART port on 32bit controllers (eg Duet)
  * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint
 * Also responds to some 'config' Json:
- * timeout, update speed, brightness, and more
+ * timeout, update speed, brightness, and more, see below
 * Sleep mode when controller reports status 'O' (PSU off, configurable)
 * Activity LED that blinks on incoming data (brightness configurable)
 * Pause button with 200ms hold-down/fatfinger delay. (configurable, disableable)
@@ -30,24 +30,26 @@
 
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
-* `{"printeye_interval":integer}`
+* `{"pe_rate":integer}`
  * Set the approximate interval in Ms that PrintEye spends waiting for a `M408` response before retrying
-* `{"printeye_maxfail":integer}`
+* `{"pe_fails":integer}`
  * Maximum number of failures before displaying `Waiting for Printer`
  * `-1` to prevent entering `Waiting for Printer` state
-* `{"printeye_brightness":byte}`
+* `{"pe_bright":byte}`
  * Brightness for display, 0-255, 0 is off
-* `{"printeye_powersave":boolean}`
+* `{"pe_saver":boolean}`
  * If true enter sleep mode when printer status = 'O' (Vin off)
-* `{"printeye_pausecontrol":integer}`
+* `{"pe_pause":integer}`
  * Number of Ms the button must be held to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
  * Set to zero to disable the pause button
  * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
-* `{"printeye_activityled":byte}`
+* `{"pe_led":byte}`
  * Brightness level (0-255) for the activity LED, set to 0 to disable
-* `{"printeye_lmsg":"string"}` & `{"printeye_rmsg":"string"}`
+* `{"pe_lmsg":"string"}` & `{"pe_rmsg":"string"}`
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
+As a bonus; you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
+* Be aware that you need to repeat double quotes to pass them via M118
 
 ## Caveats:
 * Memory is key here; the Json parser uses quite a bit of ram, and code space. The Displays and their library eat the rest. I've had to fight low program memory and ram to get this working acceptably.
