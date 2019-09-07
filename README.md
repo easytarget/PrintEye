@@ -9,23 +9,24 @@
  * Uses the auxillary UART port on 32bit controllers (eg Duet)
  * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint
 * Also responds to some 'config' Json:
- * timeout, update speed, brightness, and more, see below
+ * timeout, update speed, brightness, and [more](#control)
 * Sleep mode when controller reports status 'O' (PSU off, configurable)
-* Activity LED that blinks on incoming data (brightness configurable)
-* Pause button with 200ms hold-down/fatfinger delay. (configurable, disableable)
+* Activity LED and Pause button (configurable, disableable)
 * Correctly reports heater settings, shows if selected heater is in a fault state.
 * Sends commands with checksum; defaults to 57600 baud and is plug-n-play with panelDue UART port
 
+# Hardware
+The hardware for this is as important as the software for me; it runs on a standlaone atmega328P on a small PCB; this PCB has a FTDI conneector for both programming (the ATmega is running the optiboot bootloader) and communicating to the target Duet controller.
+See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
+![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
+* The final H/W has been built and tested; it is working properly
+* Work on a suitable case is progressing
 
+# Software
 ## Rquirements 
 * None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included.
  * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch
  * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code)
-
-## Build
-![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
-* Hardware and PCB design is complete: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
-* *HOT*!! the final H/W has been built, tested and works. Case design is now underway.
 
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
