@@ -24,9 +24,8 @@
 
 ## Build
 ![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
-* Only exists as a prototype at present; It has, however been proved on my printer; image at top is an "action Shot" :-)
 * Hardware and PCB design is complete: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
- * A PCB design exists; needs to be prototyped on a breadboard first; then built.
+* *HOT*!! the final H/W has been built, tested and works. Case design is now underway.
 
 ## Control
 The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
