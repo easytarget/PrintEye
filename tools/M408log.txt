@@ -4,10 +4,10 @@ A good start when debugging/testing:
 defaults: 
         rate:1000
        fails:6
-      bright:255
+      bright:128
        saver:true
        pause:333
-         led:128
+         led:80
    lmsg,rmsg:"SHOWSTATUS","          "
 
 {"pe_rate":10000}
@@ -23,8 +23,8 @@ defaults:
 {"pe_led":0}
 {"pe_led":64}
 {"pe_led":255}
-{"pe_lmsg":" Sunflower","printeye_rmsg":" 10.0.0.40"}
-{"pe_lmsg":"SHOWSTATUS","printeye_rmsg":"          "}
+{"pe_lmsg":" Sunflower","pe_rmsg":" 10.0.0.40"}
+{"pe_lmsg":"SHOWSTATUS","pe_rmsg":"          "}
 {"pe_lmsg":"   LEFT   "}
 {"pe_rmsg":"  RIGHT   "}
 
