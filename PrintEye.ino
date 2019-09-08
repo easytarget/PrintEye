@@ -3,7 +3,7 @@
 
   Nice display possibilities courtesy of:
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
-  Grocking the Json response with <1k of Ram left after the screens have gobbled a load 
+  Grocking the Json response with <1k of ram left after the screens have gobbled a load 
   is courtesy of Jsmn (https://zserge.com/jsmn.html)
 */
 
@@ -156,10 +156,10 @@ void setup()
   }
 
   // Displays
-  splashscreen();         // Splash Screen
-  //delay(2400);            // For 2.5 seconds   ---- Try with this off.. get processing Json asap.
+  //splashscreen();         // Splash Screen
+  //delay(2400);            // For 2.5 seconds
   analogWrite(LED, 0);    // turn the led off
-  //screenclean(); //                            ---- Try with this off.. get processing Json asap.
+  //screenclean();
 }
 
 
@@ -192,8 +192,8 @@ void screensleep()
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print(F("N")); // power off icon in this font set
-  ROLED.print(F("N")); // power off icon in this font set
+  LOLED.print('N'); // power off icon in this font set
+  ROLED.print('N'); // power off icon in this font set
   unblank();
   delay(500); // flash the power off icons
   goblank();
@@ -214,8 +214,8 @@ void screenwake()
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print(F("O")); // Resume icon in this font set
-  ROLED.print(F("O")); // Resume icon in this font set
+  LOLED.print('O'); // Resume icon in this font set
+  ROLED.print('O'); // Resume icon in this font set
   unblank();
   delay(500); // flash the icons then clean and reset screen
   goblank();
@@ -224,22 +224,22 @@ void screenwake()
 
 
 // Startup splashscreen
-void splashscreen()
-{
-  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6, 1);
-  ROLED.setCursor(6, 1);
-  LOLED.print(F("C")); // Power bolt icon in this font set
-  ROLED.print(F("C")); // Power bolt icon in this font set
-  LOLED.setFont(u8x8_font_8x13B_1x2_f);
-  ROLED.setFont(u8x8_font_8x13B_1x2_f);
-  LOLED.setCursor(3, 6);
-  ROLED.setCursor(3, 6);
-  LOLED.print(F(" PrintEye "));
-  ROLED.print(F(" by Owen "));
-  unblank();
-}
+//void splashscreen()
+//{
+//  unblank();
+//  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+//  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+//  LOLED.setCursor(6, 1);
+//  ROLED.setCursor(6, 1);
+//  LOLED.print('C'); // Power bolt icon in this font set
+//  ROLED.print('C'); // Power bolt icon in this font set
+//  LOLED.setFont(u8x8_font_8x13B_1x2_f);
+//  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+//  LOLED.setCursor(3, 6);
+//  ROLED.setCursor(3, 6);
+//  LOLED.print(F(" PrintEye "));
+//  ROLED.print(F(" by Owen "));
+//}
 
 // Display the 'Waiting for Comms' splash
 void commwait()
@@ -256,8 +256,8 @@ void commwait()
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   LOLED.setCursor(6, 1);
   ROLED.setCursor(6, 1);
-  LOLED.print(F("F")); // comms icon in this font set
-  ROLED.print(F("F")); // comms icon in this font set
+  LOLED.print('F'); // comms icon in this font set
+  ROLED.print('F'); // comms icon in this font set
 
   // screen on (even in screensave mode)
   LOLED.setPowerSave(false); 
@@ -346,8 +346,9 @@ void updatedisplay()
                                    LOLED.print(F("         "));}// Oops; has someone added a new status?
     
   if ((printerstatus == 'P') || (printerstatus == 'A') || 
-      (printerstatus == 'D') || (printerstatus == 'R'))
-  { // Only display progress during printing states
+      (printerstatus == 'D') || (printerstatus == 'R') ||
+      (printerstatus == 'M')) {
+    // Display progress during printing states and simulation
     ROLED.print(F("  "));
     if ( done < 100 ) ROLED.print(F(" "));
     if ( done < 10 ) ROLED.print(F(" "));
@@ -380,8 +381,8 @@ void updatedisplay()
   { // Show target temp
     LOLED.setCursor(10, 6);
     LOLED.print(F("  "));
-    if ( bedset < 100 ) LOLED.print(F(" "));
-    if ( bedset < 10 ) LOLED.print(F(" "));
+    if ( bedset < 100 ) LOLED.print(' ');
+    if ( bedset < 10 ) LOLED.print(' ');
     LOLED.print(bedset);
     LOLED.print(char(176)); // degrees symbol
   }
@@ -405,8 +406,8 @@ void updatedisplay()
   { // Show target temp
     ROLED.setCursor(10, 6);
     ROLED.print(F("  "));
-    if ( toolset < 100 ) ROLED.print(F(" "));
-    if ( toolset < 10 ) ROLED.print(F(" "));
+    if ( toolset < 100 ) ROLED.print(' ');
+    if ( toolset < 10 ) ROLED.print(' ');
     ROLED.print(toolset);
     ROLED.print(char(176)); // degrees symbol
   }
@@ -418,47 +419,47 @@ void updatedisplay()
   LOLED.print(F("Bed"));
 
   ROLED.setCursor(11, 0);
-  ROLED.print(F("E"));
+  ROLED.print('E');
   ROLED.print(toolhead);
-  if (toolhead < 10) ROLED.print(F(" "));
+  if (toolhead < 10) ROLED.print(' ');
   
   // Bed and Tool status icons
-  if ( bedset == -1 )
+  if ( bedset == -1 ) // fault
   {
     LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print(F("G")); // warning icon
+    LOLED.print('G'); // warning icon
   }
-  else if ( bedset == 0 )
+  else if ( bedset == 0 ) // off
   {
     LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print(F("N")); // standby icon
+    LOLED.print('N'); // standby icon
   }
   else
-  {
+  { 
     LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
     LOLED.setCursor(14, 0);
-    LOLED.print(F("N")); // heater icon
+    LOLED.print('N'); // heater icon
   }
 
-  if ( toolset == -1 )
+  if ( toolset == -1 ) // fault
   {
     ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print(F("G")); // warning icon
+    ROLED.print('G'); // warning icon
   }
-  else if ( toolset <= 0 )
+  else if ( toolset <= 0 ) // off
   {
     ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print(F("N")); // standby icon
+    ROLED.print('N'); // standby icon
   }
   else
   {
     ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
     ROLED.setCursor(14, 0);
-    ROLED.print(F("T")); // down arrow to line (looks a bit like a hotend)
+    ROLED.print('T'); // down arrow to line (looks a bit like a hotend)
   }
 
   handlebutton(); // catch the pause button
@@ -472,7 +473,7 @@ void updatedisplay()
 
   LOLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   LOLED.setCursor(9, 3);
-  LOLED.print(F("."));
+  LOLED.print('.');
   LOLED.print(heaterdecimal[0]);
   LOLED.setFont(u8x8_font_8x13B_1x2_f);
   LOLED.print(char(176)); // degrees symbol
@@ -485,7 +486,7 @@ void updatedisplay()
 
   ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   ROLED.setCursor(9, 3);
-  ROLED.print(F("."));
+  ROLED.print('.');
   ROLED.print(heaterdecimal[toolhead+1]);
   ROLED.setFont(u8x8_font_8x13B_1x2_f);
   ROLED.print(char(176)); // degrees symbol
@@ -717,7 +718,7 @@ bool jsonparser()
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( values[idx] >= -99 ) && ( values[idx] <= 999 )) // reject insane values
+            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) // reject insane values
             {
               heaterinteger[idx] = atoi(values[idx]);
               heaterdecimal[idx] = (atof(values[idx])-heaterinteger[idx])*10;
@@ -728,14 +729,14 @@ bool jsonparser()
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( values[idx] >= -99 ) && ( values[idx] <= 999 )) heateractive[idx] = atoi(values[idx]);
+            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) heateractive[idx] = atoi(values[idx]);
           }
         }
         else if (strcmp_P(result, PSTR("standby")) == 0)
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( values[idx] >= -99 ) && ( values[idx] <= 999 )) heaterstandby[idx] = atoi(values[idx]);
+            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) heaterstandby[idx] = atoi(values[idx]);
           }
         }
         else if (strcmp_P(result, PSTR("hstat")) == 0)
