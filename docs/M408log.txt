@@ -96,6 +96,9 @@ logging M408 S0
 // off (but powered up and bed wiped..)
 {"status":"I","heaters":[21.9,20.5],"active":[0.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
 
+// Simulating
+{"status":"M","heaters":[23.0,178.6],"active":[0.0,210.0],"standby":[0.0,0.0],"hstat":[2,0],"pos":[20.327,12.263,2.300],"machine":[20.749,-9.869,2.300],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"4","fanPercent":[0.0,0.0,100.0,100.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"fraction_printed":0.2163,"msgBox.mode":-1,"timesLeft":[57.4,161.4,267.3]}
+`
 // bed heating
 {"status":"I","heaters":[27.2,20.4],"active":[55.0,0.0],"standby":[0.0,0.0],"hstat":[2,2],"pos":[0.000,0.000,629.909],"machine":[0.000,0.000,630.409],"sfactor":100.00,"efactor":[100.00],"babystep":0.000,"tool":0,"probe":"5","fanPercent":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"fanRPM":0,"homed":[1,1,1],"msgBox.mode":-1}
 
@@ -322,4 +325,7 @@ Recv: WiFi IP address 10.0.0.30
 Recv: WiFi signal strength -52dBm, reconnections 0, sleep mode modem
 Recv: Socket states: 0 0 0 0 0 0 0 0
 Recv: ok
+
+
+------------------
 

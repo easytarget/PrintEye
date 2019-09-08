@@ -330,16 +330,20 @@ void updatedisplay()
                                    else 
                                      LOLED.print(ltext); 
                                    ROLED.print(rtext);}
+  else if (printerstatus == 'M' )  LOLED.print(F("Simulating"));
+  else if (printerstatus == 'B' )  LOLED.print(F(" Busy     "));
   else if (printerstatus == 'P' )  LOLED.print(F(" Printing "));
+  else if (printerstatus == 'T' )  LOLED.print(F(" Tool     "));
+  else if (printerstatus == 'D' )  LOLED.print(F(" Pausing  "));
+  else if (printerstatus == 'A' )  LOLED.print(F(" Paused   "));
+  else if (printerstatus == 'R' )  LOLED.print(F(" Resuming "));
   else if (printerstatus == 'S' )  LOLED.print(F(" Stopped  "));
   else if (printerstatus == 'C' )  LOLED.print(F(" Config   "));
-  else if (printerstatus == 'A' )  LOLED.print(F(" Paused   "));
-  else if (printerstatus == 'D' )  LOLED.print(F(" Pausing  "));
-  else if (printerstatus == 'R' )  LOLED.print(F(" Resuming "));
-  else if (printerstatus == 'B' )  LOLED.print(F(" Busy     "));
   else if (printerstatus == 'F' )  LOLED.print(F(" Updating "));
+  else if (printerstatus == 'H' )  LOLED.print(F(" Halted  "));
   else if (printerstatus == '-' )  LOLED.print(F("Connecting")); // never set by the printer, used during init.
-  else                             LOLED.print(F("Bad Status")); // Oops; has someone added a new status?
+  else                             {LOLED.print(printerstatus);
+                                   LOLED.print(F("         "));}// Oops; has someone added a new status?
     
   if ((printerstatus == 'P') || (printerstatus == 'A') || 
       (printerstatus == 'D') || (printerstatus == 'R'))
@@ -713,7 +717,7 @@ bool jsonparser()
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( values[idx] > 999 ) || ( values[idx] < -99 )) // reject insane values
+            if(( values[idx] >= -99 ) && ( values[idx] <= 999 )) // reject insane values
             {
               heaterinteger[idx] = atoi(values[idx]);
               heaterdecimal[idx] = (atof(values[idx])-heaterinteger[idx])*10;
@@ -724,14 +728,14 @@ bool jsonparser()
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( values[idx] > 999 ) || ( values[idx] < -99 )) heateractive[idx] = atoi(values[idx]);
+            if(( values[idx] >= -99 ) && ( values[idx] <= 999 )) heateractive[idx] = atoi(values[idx]);
           }
         }
         else if (strcmp_P(result, PSTR("standby")) == 0)
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( values[idx] > 999 ) || ( values[idx] < -99 )) heaterstandby[idx] = atoi(values[idx]);
+            if(( values[idx] >= -99 ) && ( values[idx] <= 999 )) heaterstandby[idx] = atoi(values[idx]);
           }
         }
         else if (strcmp_P(result, PSTR("hstat")) == 0)
