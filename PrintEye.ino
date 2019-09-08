@@ -76,24 +76,24 @@ static int index;               // length of the response
 
 
 // Primary Settings (can also be set via Json messages to serial port, see README)
-int updateinterval = 1000;     // how many ~1ms loops we spend looking for a response after M408
-int maxfail = 6;               // max failed requests before entering comms fail mode (-1 to disable)
-bool screensave = true;        // Go into screensave when controller reports PSU off (status 'O')
-byte bright = 255;             // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
-int pausecontrol = 333;        // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
-byte activityled = 128;        // Activity LED brightness (0 to disable)
-char ltext[11] = "SHOWSTATUS"; // Left status line for the idle display (max 10 chars)
-char rtext[11] = "          "; // Right status line for the idle display (max 10 chars)
+unsigned int updateinterval = 1000; // how many ~1ms loops we spend looking for a response after M408
+int maxfail = 6;                    // max failed requests before entering comms fail mode (-1 to disable)
+bool screensave = true;             // Go into screensave when controller reports PSU off (status 'O')
+byte bright = 128;                  // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
+unsigned int pausecontrol = 333;    // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
+byte activityled = 80;              // Activity LED brightness (0 to disable)
+char ltext[11] = "SHOWSTATUS";      // Left status line for the idle display (max 10 chars)
+char rtext[11] = "          ";      // Right status line for the idle display (max 10 chars)
 
 // PrintEye internal 
 int noreply = 1;           // count failed requests (default: assume we have already missed some)
-int currentbright = 0;     // track changes to brightness
+byte currentbright = 0;     // track changes to brightness
 bool screenpower = true;   // OLED power status
 
 // Json derived data:
 char printerstatus = '-';  // from m408 status key, initial value '-' is shown as 'connecting'
-int toolhead = 0;          // Tool to be monitored (assume E0 by default)
-int done = 0;             // Percentage printed
+byte toolhead = 0;          // Tool to be monitored (assume E0 by default)
+byte done = 0;             // Percentage printed
 
 // Heater active, standby and status values for all possible heaters ([0] = bed, [1] = E0, [2] = E1, etc)
 int heateractive[HEATERS];
@@ -146,7 +146,7 @@ void setup()
   #endif
   
   // Set all heater values to off by default.
-  for (int a = 0; a < HEATERS; a++)
+  for (byte a = 0; a < HEATERS; a++)
   {
     heateractive[a] = 0;
     heaterstandby[a] = 0;
@@ -155,11 +155,7 @@ void setup()
     heaterdecimal[a] = 0;
   }
 
-  // Displays
-  //splashscreen();         // Splash Screen
-  //delay(2400);            // For 2.5 seconds
   analogWrite(LED, 0);    // turn the led off
-  //screenclean();
 }
 
 
@@ -222,32 +218,13 @@ void screenwake()
   unblank();
 }
 
-
-// Startup splashscreen
-//void splashscreen()
-//{
-//  unblank();
-//  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-//  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-//  LOLED.setCursor(6, 1);
-//  ROLED.setCursor(6, 1);
-//  LOLED.print('C'); // Power bolt icon in this font set
-//  ROLED.print('C'); // Power bolt icon in this font set
-//  LOLED.setFont(u8x8_font_8x13B_1x2_f);
-//  ROLED.setFont(u8x8_font_8x13B_1x2_f);
-//  LOLED.setCursor(3, 6);
-//  ROLED.setCursor(3, 6);
-//  LOLED.print(F(" PrintEye "));
-//  ROLED.print(F(" by Owen "));
-//}
-
 // Display the 'Waiting for Comms' splash
 void commwait()
 {
   goblank();
   
-  LOLED.setFont(u8x8_font_8x13B_1x2_f);
-  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+  LOLED.setFont(u8x8_font_8x13_1x2_f);
+  ROLED.setFont(u8x8_font_8x13_1x2_f);
   LOLED.setCursor(2, 6);
   ROLED.setCursor(5, 6);
   LOLED.print(F(" Waiting for "));
@@ -273,13 +250,9 @@ void commwait()
 bool setbrightness()
 { 
   // Only update brightness when level has been changed
-  // (setContrast can cause a screen flicker when called).
+  // (setContrast() can cause a screen flicker when called).
   
   if ( bright != currentbright ) {
-    // limits
-    if ( bright > 255 ) bright = 255;
-    if ( bright < 0) bright = 0;
-    
     // Set the new contrast value
     LOLED.setContrast(bright);
     ROLED.setContrast(bright);
@@ -312,8 +285,8 @@ void updatedisplay()
 
   // First update lower status line
   
-  LOLED.setFont(u8x8_font_8x13B_1x2_f);
-  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+  LOLED.setFont(u8x8_font_8x13_1x2_f);
+  ROLED.setFont(u8x8_font_8x13_1x2_f);
 
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
@@ -350,10 +323,10 @@ void updatedisplay()
       (printerstatus == 'M')) {
     // Display progress during printing states and simulation
     ROLED.print(F("  "));
-    if ( done < 100 ) ROLED.print(F(" "));
-    if ( done < 10 ) ROLED.print(F(" "));
+    if ( done < 100 ) ROLED.print(' ');
+    if ( done < 10 ) ROLED.print(' ');
     ROLED.print(done);
-    ROLED.print(F("%"));
+    ROLED.print('%');
   }
   else if ((printerstatus != 'I') && (printerstatus != 'O')) 
   { 
@@ -467,28 +440,28 @@ void updatedisplay()
   // The main temps (slowest to redraw)
   LOLED.setFont(u8x8_font_inr33_3x6_n);
   LOLED.setCursor(0, 0);
-  if ( heaterinteger[0] < 100 ) LOLED.print(F(" "));
-  if ( heaterinteger[0] < 10 ) LOLED.print(F(" "));
+  if ( heaterinteger[0] < 100 ) LOLED.print(' ');
+  if ( heaterinteger[0] < 10 ) LOLED.print(' ');
   LOLED.print(heaterinteger[0]);
 
   LOLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   LOLED.setCursor(9, 3);
   LOLED.print('.');
   LOLED.print(heaterdecimal[0]);
-  LOLED.setFont(u8x8_font_8x13B_1x2_f);
+  LOLED.setFont(u8x8_font_8x13_1x2_f);
   LOLED.print(char(176)); // degrees symbol
 
   ROLED.setFont(u8x8_font_inr33_3x6_n);
   ROLED.setCursor(0, 0);
-  if ( heaterinteger[toolhead+1] < 100 ) ROLED.print(F(" "));
-  if ( heaterinteger[toolhead+1] < 10 ) ROLED.print(F(" "));
+  if ( heaterinteger[toolhead+1] < 100 ) ROLED.print(' ');
+  if ( heaterinteger[toolhead+1] < 10 ) ROLED.print(' ');
   ROLED.print(heaterinteger[toolhead+1]);
 
   ROLED.setFont(u8x8_font_px437wyse700b_2x2_n);
   ROLED.setCursor(9, 3);
   ROLED.print('.');
   ROLED.print(heaterdecimal[toolhead+1]);
-  ROLED.setFont(u8x8_font_8x13B_1x2_f);
+  ROLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.print(char(176)); // degrees symbol
 }
 
@@ -539,8 +512,8 @@ void handlebutton()
     if (millis() > (pausetimer + pausecontrol)) 
     {
       // Button held down for timeout; send commands as appropriate;
-      if (printerstatus == 'P') sendwithcsum("M25");
-      if (printerstatus == 'A') sendwithcsum("M24");
+      if (printerstatus == 'A') Serial.println(F("M24*75"));
+      if (printerstatus == 'P') Serial.println(F("M25*74"));
       pausetimer = -1; // -1 means we have sent the command
     }
   }
@@ -765,22 +738,10 @@ bool jsonparser()
   return(true);  // we have processed a valid block, does not assert whether data has been updated
 }
 
-// Send to Printer with a checksum
-// lifted from: https://duet3d.dozuki.com/Wiki/Gcode#Section_Checking
-
-void sendwithcsum(char cmd[8])
-{
-  int cs = 0;
-  for(int i = 0; cmd[i] != '*' && cmd[i] != NULL; i++)
-   cs = cs ^ cmd[i];
-  cs &= 0xff;  // Defensive programming...
-  Serial.print(cmd);
-  Serial.print("*");
-  Serial.println(cs);
-}
-
 
 /*    Loop    */
+static unsigned long timeout = 0;
+static bool jsonstart;
 
 void loop(void)
 {
@@ -795,24 +756,23 @@ void loop(void)
   // Other incoming characters that are not part of any json object are dropped
   //
   // M408 S0 is the most basic info request, but has all the data we use
-  
-  unsigned long timeout;
-  bool jsonstart;
-  
+  // - It is sent with a checksum; https://duet3d.dozuki.com/Wiki/Gcode#Section_Checking
+
   jsonstart = false;
   do 
   {
-    // Send the Magic command to ask for Json data (with checksum).
-    sendwithcsum("M408 S0");
-    noreply++; // Always assume the request will fail, jsonpaser() resets the count on success
+    if ( millis() > timeout ) {
+      // Send the Magic command to ask for Json data (with checksum).
+      Serial.println(F("M408 S0*50"));
+      timeout = millis() + updateinterval; // and start the clock
+    }
+  
     if (maxfail != -1) {
       // once max number of failed requests is reached, show 'waiting for printer'
       if ( noreply == maxfail ) commwait();
     }
-    
-    timeout = millis() + updateinterval; // start the clock
-    
-    while ( millis() < timeout && !jsonstart )
+
+    while ( millis() <= timeout && !jsonstart )
     {
       // check button and look for a '{' on the serial port for a time defined by 'updateinterval'
       handlebutton();
@@ -823,6 +783,7 @@ void loop(void)
         jsonstart = true;
       }
     }
+    noreply++; // Always assume the request failed, jsonpaser() resets the count on success
   }
   while (!jsonstart);
 
@@ -832,7 +793,7 @@ void loop(void)
   // (64bit) serial buffer overflowing @57600 baud.
   
   index = 0;
-  int nest = 0; //measure nesting of json braces, nest=1 at top level
+  byte nest = 0; //measure nesting of json braces, nest=1 at top level
   char incoming = '{'; // we know the string started with this
   unsigned long jtimeout = millis() + JSONWINDOW; // timeout while recieving the json data
 
@@ -881,7 +842,7 @@ void loop(void)
   }
 
   // We have something between braces {}, probably Json.
-  // parse it and reset the fail counter on success, loop again on failure
+  // Parse it and reset the fail counter on success, loop again on failure
   if (jsonparser()) noreply = 0; else return;
   
   // handle screensave mode if enabled
@@ -901,11 +862,5 @@ void loop(void)
   // Only update the display if needed 
   if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
 
-  // Snooze until timeout is reached (we usually complete a cycle within the timeout and need to pause here)
-  if (millis() < timeout)
-  {
-    handlebutton(); // catch the pause button
-    delay(5); // wait a bit
-  }
-
+  // Now loop back to waiting for Json and sending requests
 }
