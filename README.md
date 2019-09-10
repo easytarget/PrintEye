@@ -1,11 +1,11 @@
 ## Little Eyes For a printer..
 # Temperature display for RepRap firmware (eg Duet)
 
-![Prototype](./images/prototype-run.jpg)
+![Prototype](./images/assembled-running.jpg)
 
 * Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing)
  * This is it.. the displays are less then an 2cm in size and I will not overload them with info
-* Sends `M408 S0` status requests to the controller and then proceses the Json reply
+* Periodically sends `M408 S0` status requests to the controller and proceses the Json reply
  * Uses the auxillary UART port on 32bit controllers (eg Duet)
  * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint
 * Also responds to some 'config' Json:
@@ -13,25 +13,27 @@
 * Sleep mode when controller reports status 'O' (PSU off, configurable)
 * Activity LED and Pause button (configurable, disableable)
 * Correctly reports heater settings, shows if selected heater is in a fault state.
-* Sends commands with checksum; defaults to 57600 baud and is plug-n-play with panelDue UART port
+* plug-n-play with panelDue UART port
 
 # Hardware
-The hardware for this is as important as the software for me; it runs on a standlaone atmega328P on a small PCB; this PCB has a FTDI conneector for both programming (the ATmega is running the optiboot bootloader) and communicating to the target Duet controller.
+The hardware for this is as important as the software; it runs on a standlaone ATmega328P on a custom PCB; this PCB has a FTDI conneector for both programming (the ATmega is running the optiboot bootloader) and communicating to the target Duet controller.
 See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
 ![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
-* The final H/W has been built and tested; it is working properly
-* Work on a suitable case is progressing
+* The final H/W has been built,tested and comissioned.
+** I have also designed a case.
+** Level converters allow the PrintEye to run at 5V while communicating with the 3.2v Duet.
 
 # Software
 ## Rquirements 
-* None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included.
- * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch
- * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code)
+* None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included in the sketch.
+ * I used a FTDI adapter to do the programming and serial debugging during development; the circuit incorporates a the correct reset pin pullup+capacitor to allow low voltage in-circuit reprogramming.
+ * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch.
+ * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code).
 
 ## Control
-The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated)
+The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated).
 * `{"pe_rate":integer}`
- * Set the approximate interval in Ms that PrintEye spends waiting for a `M408` response before retrying
+ * Set the approximate interval in ms that PrintEye spends waiting for a `M408` response before retrying
 * `{"pe_fails":integer}`
  * Maximum number of failures before displaying `Waiting for Printer`
  * `-1` to prevent entering `Waiting for Printer` state
@@ -40,7 +42,7 @@ The Jsmn library is used, which provides some robustness in processing key/value
 * `{"pe_saver":boolean}`
  * If true enter sleep mode when printer status = 'O' (Vin off)
 * `{"pe_pause":integer}`
- * Number of Ms the button must be held to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
+ * Number of ms the button must be held to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
  * Set to zero to disable the pause button
  * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
 * `{"pe_led":byte}`
@@ -48,8 +50,9 @@ The Jsmn library is used, which provides some robustness in processing key/value
 * `{"pe_lmsg":"string"}` & `{"pe_rmsg":"string"}`
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
-As a bonus; you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
-* Be aware that you need to repeat double quotes to pass them via M118
+* As a bonus; you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
+ * Be aware that you need to repeat double quotes to pass them via M118
+ * Examples: set a Idle text message: `M118 P2 S"{""pe_lmsg"":"" Sunflower"",""pe_rmsg"":"" 10.0.0.40""}"`, disabling sleep mode `M118 P2 S"{""pe_saver"":false}"`
 
 ## Caveats:
 * Memory is key here; the Json parser uses quite a bit of ram, and code space. The Displays and their library eat the rest. I've had to fight low program memory and ram to get this working acceptably.
