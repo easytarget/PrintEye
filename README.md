@@ -21,9 +21,7 @@ The hardware for this is as important as the software; it runs on a standlaone A
 
 * Level converters allow the PrintEye to run at 5V while communicating with the 3.2v Duet.
 * This should also be Compatible with V3 Duet electronics
- * A new cable layout would be needed sicen the V3 hardware uses 5 pin connectors
- * However, since 3v3 is now availiable at the conenctor it would make running a 3v3 version of printeye simpler
- * There may also be Duet config file settings needed to declare which expansion connector should be attached to the Duet UART
+ * A new cable layout and duet config would be needed since the V3 hardware uses 5 pin connectors that can be mapped to functions
 
 # Software
 ## Requirements 
