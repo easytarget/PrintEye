@@ -14,41 +14,58 @@
 * Plug-n-play with panelDue UART port.
 
 # Hardware
-The hardware for this is as important as the software; it runs on a standlaone ATmega328P on a custom PCB; this PCB has a FTDI conneector for both programming (the ATmega is running the optiboot bootloader) and communicating to the target Duet controller.
-See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware).
+## See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware).
+The hardware for this is as important as the software; it runs on a standlaone ATmega328P on a custom PCB; this PCB has a FTDI connector for both programming and communicating to the target Duet controller.
+
 ![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
-* The final H/W has been built,tested and comissioned.
-** I have also designed a case.
-** Level converters allow the PrintEye to run at 5V while communicating with the 3.2v Duet.
+
+* Level converters allow the PrintEye to run at 5V while communicating with the 3.2v Duet.
+* This should also be Compatible with V3 Duet electronics
+ * A new cable layout would be needed sicen the V3 hardware uses 5 pin connectors
+ * However, since 3v3 is now availiable at the conenctor it would make running a 3v3 version of printeye simpler
+ * There may also be Duet config file settings needed to declare which expansion connector should be attached to the Duet UART
 
 # Software
-## Rquirements 
+## Requirements 
 * None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included in the sketch.
  * I used a FTDI adapter to do the programming and serial debugging during development; the circuit incorporates a the correct reset pin pullup+capacitor to allow low voltage in-circuit reprogramming.
+  * For more on FTDI programmers see https://learn.adafruit.com/ftdi-friend/overview
  * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch.
  * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code).
 
+## Development
+I used the Arduino IDE for development and testing; and did a lot of work using the serial monitor to debug the printer operation after capturing a lot of typical M408 responses at the start of the project ([see this](./docs/M508log.txt))
+
+The ATMega itself is loaded with the Optiboot bootloader; this is the standard used for recent Arduino Uno's etc.
+
 ## Control
-The Jsmn library is used, which provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated).
+The Jsmn library provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated).
+Send Standalone Json blocks to the PrintEye to control it's behaviour:
 * `{"pe_rate":integer}`
  * Set the approximate interval in ms that PrintEye spends waiting for a `M408` response before retrying
+ * Default: 1000
 * `{"pe_fails":integer}`
  * Maximum number of failures before displaying `Waiting for Printer`
  * `-1` to prevent entering `Waiting for Printer` state
+ * Default: 6
 * `{"pe_bright":byte}`
  * Brightness for display, 0-255, 0 is off
+ * Default 128
 * `{"pe_saver":boolean}`
  * If true enter sleep mode when printer status = 'O' (Vin off)
+ * Default: true
 * `{"pe_pause":integer}`
  * Number of ms the button must be held to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
  * Set to zero to disable the pause button
  * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
+ * Default: 333
 * `{"pe_led":byte}`
  * Brightness level (0-255) for the activity LED, set to 0 to disable
+ * Default: 80
 * `{"pe_lmsg":"string"}` & `{"pe_rmsg":"string"}`
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
-* As a bonus; you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
+As a bonus you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
  * Be aware that you need to repeat double quotes to pass them via M118
  * For instance; disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`, or use in macros like this:
 ```; lights-norm.g : Lights to 50%
