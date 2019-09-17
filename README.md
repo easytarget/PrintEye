@@ -3,21 +3,19 @@
 
 ![Prototype](./images/assembled-running.jpg)
 
-* Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing)
- * This is it.. the displays are less then an 2cm in size and I will not overload them with info
-* Periodically sends `M408 S0` status requests to the controller and proceses the Json reply
- * Uses the auxillary UART port on 32bit controllers (eg Duet)
- * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint
-* Also responds to some 'config' Json:
- * timeout, update speed, brightness, and [more](#control)
-* Sleep mode when controller reports status 'O' (PSU off, configurable)
-* Activity LED and Pause button (configurable, disableable)
-* Correctly reports heater settings, shows if selected heater is in a fault state.
-* plug-n-play with panelDue UART port
+* Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing).
+ * This is it.. the displays are less then an 2cm in size and I will not overload them with info.
+* Periodically sends `M408 S0` status requests to the controller and proceses the Json reply.
+ * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint.
+* Also responds to some 'config' Json for update speed, brightness, button and [more](#control)
+* Sleep mode when controller reports PSU off, (configurable).
+* Activity LED and Pause button (configurable).
+* Clearly shows when heaters are in a fault state.
+* Plug-n-play with panelDue UART port.
 
 # Hardware
 The hardware for this is as important as the software; it runs on a standlaone ATmega328P on a custom PCB; this PCB has a FTDI conneector for both programming (the ATmega is running the optiboot bootloader) and communicating to the target Duet controller.
-See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware)
+See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware).
 ![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
 * The final H/W has been built,tested and comissioned.
 ** I have also designed a case.
@@ -52,15 +50,16 @@ The Jsmn library is used, which provides some robustness in processing key/value
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
 * As a bonus; you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
  * Be aware that you need to repeat double quotes to pass them via M118
- * Examples: set a Idle text message: `M118 P2 S"{""pe_lmsg"":"" Sunflower"",""pe_rmsg"":"" 10.0.0.40""}"`, disabling sleep mode `M118 P2 S"{""pe_saver"":false}"`
+ * For instance; disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`, or use in macros like this:
+```; lights-norm.g : Lights to 50%
+M42 P2 S0.5
+M118 P2 S"{""pe_bright"":128}"```
 
 ## Caveats:
 * Memory is key here; the Json parser uses quite a bit of ram, and code space. The Displays and their library eat the rest. I've had to fight low program memory and ram to get this working acceptably.
 * Max json size = 500 bytes; or 86 [Jsmn tokens](https://github.com/zserge/jsmn#design).
- * The current code cannot survive a sudden increase in size of M408 S0 responses (eg from a firmware update)
  * Exceeding this causes the incoming Json to be ignored 
  * These defaults are the result of considerable testing and debugging; they should be good for responses from a 4 extruder system with heated bed and enclosure
- * When the OLED's corrupt and show artifacts.. you have increased these too far!
 * Software I2C is slow. 
  * Experimenting with an alternative (one HW + One SW) looked weird and unbalanced.
  * An I2C multiplexer would solve this, or using a chip (Mega256?) with dual hardware I2C, both add complexity
@@ -75,4 +74,4 @@ The Jsmn library is used, which provides some robustness in processing key/value
 ### For Later/Never
 * Displaying an Enclosure temp on a cycle with bed temp.
 * EEPROM for settings
-* Investigate wether it is possible to multiplex the HW I2C bus (SCK) with IO pins and a couple of signal diodes to address one display or the other, or both for setup, clearing etc.
+* Investigate whether it is possible to multiplex the HW I2C bus (SCK) with IO pins and a couple of mosfet logic gates to address one display or the other, or both for setup, clearing etc. 
