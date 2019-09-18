@@ -20,25 +20,24 @@ The hardware for this is as important as the software; it runs on a standlaone A
 ![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
 
 * Level converters allow the PrintEye to run at 5V while communicating with the 3.2v Duet.
-* This should also be Compatible with V3 Duet electronics
+* This should also be Compatible with the (as of this writing) upcoming V3 Duet electronics
  * A new cable layout and duet config would be needed since the V3 hardware uses 5 pin connectors that can be mapped to functions
 
 # Software
 ## Requirements 
-* None really; you need to be able to compile and upload to your target, and be a bit competent at assembling stuff, but all the libraries needed are included in the sketch.
- * I used a FTDI adapter to do the programming and serial debugging during development; the circuit incorporates a the correct reset pin pullup+capacitor to allow low voltage in-circuit reprogramming.
-  * For more on FTDI programmers see https://learn.adafruit.com/ftdi-friend/overview
- * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch.
- * The Arduino MemoryFree lib is used during debug (see comments and `#define DEBUG` in code).
+* You need to include the [U8glib](https://github.com/olikraus/u8g2/) Graphics library for the displays; this is available in the ArduinoIDE; search for 'U8g2' in the library manager, or follow instructions [here](https://github.com/olikraus/u8g2/wiki) 
+* The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch.
+* I used a FTDI adapter to do the programming and serial debugging during development; the circuit incorporates a the correct reset pin pullup+capacitor to allow low voltage in-circuit reprogramming.
+ * For more on FTDI programmers see https://learn.adafruit.com/ftdi-friend/overview
+ * I found I had to leave my FTDI programmer set to 5v for reliable programming of the final PCB; it would frequently fail to detect the reset pulldown otherwise.
+* The Arduino MemoryFree lib was used during debug (see comments and `#define DEBUG` in code).
 
 ## Development
-I used the Arduino IDE for development and testing; and did a lot of work using the serial monitor to debug the printer operation after capturing a lot of typical M408 responses at the start of the project ([see this](./docs/M508log.txt))
-
-The ATMega itself is loaded with the Optiboot bootloader; this is the standard used for recent Arduino Uno's etc.
+I used the Arduino IDE for development and testing; and did a lot of work using the serial monitor to debug the printer operation after capturing a lot of typical `M408` responses at the start of the project ([see this](./tools/M408log.txt))
 
 ## Control
-The Jsmn library provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated).
-Send Standalone Json blocks to the PrintEye to control it's behaviour:
+You can use `M118` from the terminal or in your macros to configure the PrintEye via Json.
+
 * `{"pe_rate":integer}`
  * Set the approximate interval in ms that PrintEye spends waiting for a `M408` response before retrying
  * Default: 1000
@@ -63,15 +62,23 @@ Send Standalone Json blocks to the PrintEye to control it's behaviour:
 * `{"pe_lmsg":"string"}` & `{"pe_rmsg":"string"}`
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
-As a bonus you can use M118 in your macros to send data to the printeye. I use this in my lighting control macros to make the printeye follow suit.
- * Be aware that you need to repeat double quotes to pass them via M118
- * For instance; disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`, or use in macros like this:
-```; lights-norm.g : Lights to 50%
-M42 P2 S0.5
-M118 P2 S"{""pe_bright"":128}"```
 
-## Caveats:
-* Memory is key here; the Json parser uses quite a bit of ram, and code space. The Displays and their library eat the rest. I've had to fight low program memory and ram to get this working acceptably.
+The Jsmn library provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated).
+* Be aware that you need to repeat double quotes to pass them via 'M118'
+
+### Examples; 
+Disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`
+
+Use in macros like this:
+
+```
+; lights-norm.g
+M42 P2 S0.5                     ; Heater2 (Led PWM) to 50%
+M118 P2 S"{""pe_bright"":128}"  ; Printeye to 50%
+```
+
+## Caveats
+* Memory is the biggest limit here; the Json parser uses quite a bit of ram, and code space. The Displays and their library eat the rest. I've had to fight low program memory and ram to get this working acceptably.
 * Max json size = 500 bytes; or 86 [Jsmn tokens](https://github.com/zserge/jsmn#design).
  * Exceeding this causes the incoming Json to be ignored 
  * These defaults are the result of considerable testing and debugging; they should be good for responses from a 4 extruder system with heated bed and enclosure
@@ -79,7 +86,7 @@ M118 P2 S"{""pe_bright"":128}"```
  * Experimenting with an alternative (one HW + One SW) looked weird and unbalanced.
  * An I2C multiplexer would solve this, or using a chip (Mega256?) with dual hardware I2C, both add complexity
  * I have tried to compensate for the slow redrawing by sequencing the order of updating screen elements; eg making the updates look more like animations.
-* You will need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with 16Mhz/3.3v and the underclock option discussed in the `setup()` section of the sketch. Display updates will be even slower for this, and you will need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
+* You need level shifters for interfacing to a Duet UART (PanelDue) port if you run this at 16Mhz/5v, alternatively use a 12Mhz/3.3v combo, or experiment with 16Mhz/3.3v and the underclock option discussed in the `setup()` section of the sketch. Display updates will be even slower for this, and you will need to add a 3v3 regulator, or tap the controllers 3v3 line for power.
 
 ## Enhancements: 
 * Hurrah; I (nearly) emptied this list; the idea is to keep this simple, so I dont intend to add things here!
