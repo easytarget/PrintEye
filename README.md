@@ -3,9 +3,9 @@
 
 ![Prototype](./images/assembled-running.jpg)
 
-* Only displays very basic info: Status, tool and bed activity + temperature, pct printed (when printing).
+* Only displays very basic info: Status, tool and bed status + temperatures, prcentage printed.
  * This is it.. the displays are less then an 2cm in size and I will not overload them with info.
-* Periodically sends `M408 S0` status requests to the controller and proceses the Json reply.
+* Periodically sends `M408 S0` status requests to the controller and processes the Json reply.
  * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint.
 * Also responds to some 'config' Json for update speed, brightness, button and [more](#control)
 * Sleep mode when controller reports PSU off, (configurable).
@@ -63,8 +63,8 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
  * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
  * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
 
-The Jsmn library provides some robustness in processing key/value pairs (use of quotes etc; the Json must still be structually correct and terminated).
-* Be aware that you need to repeat double quotes to pass them via 'M118'
+The Jsmn library provides some robustness in processing key/value pairs (in the use of quotes etc); but the Json must be structually correct and terminated.
+* Be aware that you need to repeat double quotes to pass them via 'M118'.
 
 ### Examples; 
 Disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`
@@ -72,9 +72,9 @@ Disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`
 Use in macros like this:
 
 ```
-; lights-norm.g
-M42 P2 S0.5                     ; Heater2 (Led PWM) to 50%
-M118 P2 S"{""pe_bright"":128}"  ; Printeye to 50%
+; lights-dim.g
+M42 P2 S0.1                  ; Heater2 (Led PWM) to 10%
+M118 P2 S"{""pe_bright"":1}" ; Printeye as low as possible
 ```
 
 ## Caveats
