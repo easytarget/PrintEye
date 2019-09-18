@@ -14,7 +14,7 @@
 * Plug-n-play with panelDue UART port.
 
 # Hardware
-## See: [PrintEyeHardware](https://easytarget.org/ogit/circuits/PrintEyeHardware).
+## See: [PrintEyeHardware](https://github.com/easytarget/PrintEyeHardware).
 The hardware for this is as important as the software; it runs on a standlaone ATmega328P on a custom PCB; this PCB has a FTDI connector for both programming and communicating to the target Duet controller.
 
 ![Thumb](./images/PrintEye-Schematic-thumb.png "Full Schematics in Hardware repo") ![Thumb](./images/PrintEye-pcb-thumb.jpg "Full KiCad files in Hardware repo")
