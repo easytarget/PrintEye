@@ -20,13 +20,14 @@ defaults:
 {"pe_saver":false}
 {"pe_pause":0}
 {"pe_pause":500}
+pe_bctl
+pe_bcfg
 {"pe_led":0}
 {"pe_led":64}
 {"pe_led":255}
-{"pe_lmsg":" Sunflower","pe_rmsg":" 10.0.0.40"}
-{"pe_lmsg":"SHOWSTATUS","pe_rmsg":"          "}
-{"pe_lmsg":"   LEFT   "}
-{"pe_rmsg":"  RIGHT   "}
+{"pe_imsg":" Sunflower 10.0.0.40"}
+{"pe_imsg":"SHOWSTATUS"}
+{"pe_imsg":"  YOUR      MESSAGE "}
 
 
 logging M408 S0

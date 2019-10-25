@@ -59,9 +59,10 @@
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 U8X8_SSD1306_128X64_NONAME_SW_I2C LOLED(/* clock=*/ SCK1, /* data=*/ SDA1, /* reset=*/ U8X8_PIN_NONE);   // Left OLED
 U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* reset=*/ U8X8_PIN_NONE);   // Right OLED
-//   Hardware I2C works, but the ATMega 328P only has one HW interface available, so if your displays have address conflicts 
+//  Hardware I2C works, but the ATMega 328P only has one HW interface available, 
+//   so if your displays have address conflicts 
 //   (like my cheap ones do) a trick is to use two SW interfaces.
-//   Software (bit-bang)is slow, but so is the update frequency from the controller
+//  Software (bit-bang)is slow, but so is the update frequency from the controller
 
 // During debug I enable this to monitor the free memory during runtime
 #ifdef DEBUG 
@@ -77,23 +78,24 @@ static int index;               // length of the response
 
 // Primary Settings (can also be set via Json messages to serial port, see README)
 unsigned int updateinterval = 1000; // how many ~1ms loops we spend looking for a response after M408
-int maxfail = 6;                    // max failed requests before entering comms fail mode (-1 to disable)
+byte maxfail = 6;                   // max failed requests before entering comms fail mode (0 to disable)
 bool screensave = true;             // Go into screensave when controller reports PSU off (status 'O')
 byte bright = 128;                  // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
-unsigned int pausecontrol = 333;    // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
+unsigned int buttoncontrol = 333;   // Hold-down delay for button, 0=disabled, max=(updateinterval-100)
+byte buttonconfig = 0;              // Action control for button.
 byte activityled = 80;              // Activity LED brightness (0 to disable)
-char ltext[11] = "SHOWSTATUS";      // Left status line for the idle display (max 10 chars)
-char rtext[11] = "          ";      // Right status line for the idle display (max 10 chars)
+char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle display (left 10 chars)
+char rtext[11] = "          ";      // Status line for the off/idle display (right 10 chars)
 
 // PrintEye internal 
-int noreply = 1;           // count failed requests (default: assume we have already missed some)
-byte currentbright = 0;     // track changes to brightness
-bool screenpower = true;   // OLED power status
+byte noreply = 1;         // count failed requests (default: assume we have already missed some)
+byte currentbright = 0;   // track changes to brightness
+bool screenpower = true;  // OLED power status
 
 // Json derived data:
-char printerstatus = '-';  // from m408 status key, initial value '-' is shown as 'connecting'
-byte toolhead = 0;          // Tool to be monitored (assume E0 by default)
-byte done = 0;             // Percentage printed
+char printerstatus = '-'; // from m408 status key, initial value '-' is shown as 'connecting'
+byte toolhead = 0;        // Tool to be monitored (assume E0 by default)
+byte done = 0;            // Percentage printed
 
 // Heater active, standby and status values for all possible heaters ([0] = bed, [1] = E0, [2] = E1, etc)
 int heateractive[HEATERS];
@@ -265,6 +267,17 @@ bool setbrightness()
   if ( bright > 0 ) return (true); else return (false);
 }
 
+// Print current progress
+void printprogress()
+{
+  // Padded progress display on right oled.
+  ROLED.print(F("  "));
+  if ( done < 100 ) ROLED.print(' ');
+  if ( done < 10 ) ROLED.print(' ');
+  ROLED.print(done);
+  ROLED.print(F("%    "));
+}
+
 
 /*   Update The Displays   */ 
 
@@ -291,50 +304,103 @@ void updatedisplay()
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
 
-  // Max 10 chars for a status string, '
-  // SHOWSTATUS' is special, it displays 'sleep' or 'idle' as appropriate.
-  if (printerstatus == 'O' )      {if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0)
-                                     LOLED.print(F(" Sleep    "));
-                                   else 
-                                     LOLED.print(ltext); 
-                                   ROLED.print(rtext);}
-  else if (printerstatus == 'I' ) {if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0)
-                                     LOLED.print(F(" Idle     "));
-                                   else 
-                                     LOLED.print(ltext); 
-                                   ROLED.print(rtext);}
-  else if (printerstatus == 'M' )  LOLED.print(F("Simulating"));
-  else if (printerstatus == 'B' )  LOLED.print(F(" Busy     "));
-  else if (printerstatus == 'P' )  LOLED.print(F(" Printing "));
-  else if (printerstatus == 'T' )  LOLED.print(F(" Tool     "));
-  else if (printerstatus == 'D' )  LOLED.print(F(" Pausing  "));
-  else if (printerstatus == 'A' )  LOLED.print(F(" Paused   "));
-  else if (printerstatus == 'R' )  LOLED.print(F(" Resuming "));
-  else if (printerstatus == 'S' )  LOLED.print(F(" Stopped  "));
-  else if (printerstatus == 'C' )  LOLED.print(F(" Config   "));
-  else if (printerstatus == 'F' )  LOLED.print(F(" Updating "));
-  else if (printerstatus == 'H' )  LOLED.print(F(" Halted  "));
-  else if (printerstatus == '-' )  LOLED.print(F("Connecting")); // never set by the printer, used during init.
-  else                             {LOLED.print(printerstatus);
-                                   LOLED.print(F("         "));}// Oops; has someone added a new status?
-    
-  if ((printerstatus == 'P') || (printerstatus == 'A') || 
-      (printerstatus == 'D') || (printerstatus == 'R') ||
-      (printerstatus == 'M')) {
-    // Display progress during printing states and simulation
-    ROLED.print(F("  "));
-    if ( done < 100 ) ROLED.print(' ');
-    if ( done < 10 ) ROLED.print(' ');
-    ROLED.print(done);
-    ROLED.print('%');
+  
+  if (printerstatus == 'O' )
+  {
+    if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) // 'SHOWSTATUS' displays actual state
+    {
+      LOLED.print(F(" Sleep    "));
+      ROLED.print(F("          "));
+    }
+    else 
+    {
+      LOLED.print(ltext); 
+      ROLED.print(rtext);
+    }
   }
-  else if ((printerstatus != 'I') && (printerstatus != 'O')) 
-  { 
-    ROLED.print(F("          ")); 
+  else if (printerstatus == 'I' )
+  {
+    if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) // 'SHOWSTATUS' displays actual state
+    {
+      LOLED.print(F(" Idle     "));
+      ROLED.print(F("          "));
+    }
+    else
+    {
+      LOLED.print(ltext); 
+      ROLED.print(rtext);
+    }
   }
-
+  else if (printerstatus == 'B' )
+  {
+    LOLED.print(F(" Busy     ")); // In busy mode put the
+    ROLED.print(ltext);           // left text on right display 
+  }
+  else if (printerstatus == 'M' )
+  {
+    LOLED.print(F("Simulating"));
+    printprogress();
+  }
+  else if (printerstatus == 'P' )
+  {
+    LOLED.print(F(" Printing "));
+    printprogress();
+  }
+  else if (printerstatus == 'T' )
+  {
+    LOLED.print(F(" Tool     "));
+    ROLED.print(F("          "));
+  }
+  else if (printerstatus == 'D' )
+  {
+    LOLED.print(F(" Pausing  "));
+    printprogress();
+  }
+  else if (printerstatus == 'A' )
+  {
+    LOLED.print(F(" Paused   "));
+    printprogress();
+  }
+  else if (printerstatus == 'R' )
+  {
+    LOLED.print(F(" Resuming "));
+    printprogress();
+  }
+  else if (printerstatus == 'S' )
+  {
+    LOLED.print(F(" Stopped  "));
+    ROLED.print(F("          "));
+  }
+  else if (printerstatus == 'C' )
+  {
+    LOLED.print(F(" Config   "));
+    ROLED.print(F("          "));
+  }
+  else if (printerstatus == 'F' )
+  {
+    LOLED.print(F(" Updating "));
+    ROLED.print(F("          "));
+  }
+  else if (printerstatus == 'H' )
+  {
+    LOLED.print(F(" Halted  "));
+    ROLED.print(F("          "));
+  }
+  else if (printerstatus == '-' )
+  {
+    LOLED.print(F("Connecting")); // never set by the printer, used during init.
+    ROLED.print(F("          "));
+  }
+  else
+  {
+    LOLED.print(printerstatus);  // Oops; has someone added a new status?
+    LOLED.print(F("         ")); // show it and blank rest
+    ROLED.print(F("          "));
+  }
+  
   handlebutton(); // catch the pause button
 
+  // Set temp according to the status of the heater
   if (heaterstatus[0] == 1) bedset = heaterstandby[0];
   else if (heaterstatus[0] == 2) bedset = heateractive[0];
   else if (heaterstatus[0] == 3) bedset = -1;
@@ -360,6 +426,7 @@ void updatedisplay()
     LOLED.print(char(176)); // degrees symbol
   }
 
+  // Set temp according to the status of the heater
   if (heaterstatus[toolhead+1] == 1) toolset = heaterstandby[toolhead+1];
   else if (heaterstatus[toolhead+1] == 2) toolset = heateractive[toolhead+1];
   else if (heaterstatus[toolhead+1] == 3) toolset = -1;
@@ -473,7 +540,7 @@ void handlebutton()
 {
   // Process the button state and send pause/resume as appropriate
   
-  if (pausecontrol == 0) return; // fast exit if pause disabled 
+  if (buttoncontrol == 0) return; // fast exit if pause disabled 
   
   if (digitalRead(BUTTON)) // button is active low.
   {
@@ -488,15 +555,14 @@ void handlebutton()
     }
     return; 
   }
-  
   else if (pausetimer == -1) 
   {
     // command has been sent, ensure LED off and stop processing
     analogWrite(LED,0); // led off
     return; 
   }
-  
-  else if ((printerstatus == 'P') || (printerstatus == 'A'))
+  else // Button pressed until activated, process according to state and config
+  if ((printerstatus == 'P') || (printerstatus == 'A')) 
   {
     // Button is pressed while printing or paused
     if (pausetimer == 0) 
@@ -509,7 +575,7 @@ void handlebutton()
     }
 
     // When timer expires take action
-    if (millis() > (pausetimer + pausecontrol)) 
+    if (millis() > (pausetimer + buttoncontrol)) 
     {
       // Button held down for timeout; send commands as appropriate;
       if (printerstatus == 'A') Serial.println(F("M24*75"));
@@ -627,7 +693,7 @@ bool jsonparser()
         else if( strcmp_P(result, PSTR("pe_fails")) == 0 )
         {
           maxfail = atoi(value);
-          if (maxfail == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
+          if (maxfail == 0) screenclean(); // cleanup when this is set while 'waiting for printer'
         }
         else if( strcmp_P(result, PSTR("pe_bright")) == 0 )
         {
@@ -638,30 +704,27 @@ bool jsonparser()
           if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; 
           else { screensave = false; if (!screenpower) screenwake(); } // force screen on.
         }
-        else if( strcmp_P(result, PSTR("pe_pause")) == 0 )
+        else if( strcmp_P(result, PSTR("pe_bctl")) == 0 )
         {
-          pausecontrol = atoi(value);
+          buttoncontrol = atoi(value);
+        }
+        else if( strcmp_P(result, PSTR("pe_bcfg")) == 0 )
+        {
+          buttonconfig = atoi(value);
         }
         else if( strcmp_P(result, PSTR("pe_led")) == 0 )
         {
           activityled = atoi(value);
         }
-        else if( strcmp_P(result, PSTR("pe_lmsg")) == 0 )
+        else if( strcmp_P(result, PSTR("pe_imsg")) == 0 )
         {
           byte s = strlen(value);
           for( byte a = 0; a < 10; a++ ) 
           {
-            if( a < s ) ltext[a] = value[a]; else ltext[a] = ' '; // copy or pad as appropriate
+            if( a < s ) ltext[a] = value[a]; else ltext[a] = ' '; // left: copy or pad as appropriate
+            if( a+10 < s ) rtext[a] = value[a+10]; else rtext[a] = ' '; //right: copy or pad as appropriate
           }
           ltext[10]='\0';
-        }
-        else if (strcmp_P(result, PSTR("pe_rmsg")) == 0)
-        {
-          byte s = strlen(value);
-          for( byte a = 0; a < 10; a++ ) 
-          {
-            if( a < s ) rtext[a] = value[a]; else rtext[a] = ' '; // copy or pad as appropriate
-          }
           rtext[10]='\0';
         }
       }
@@ -730,7 +793,7 @@ bool jsonparser()
 
   // If we get here we have recieved a valid Json response from the printer
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
-  if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
+  if ((noreply >=  maxfail) && (maxfail != 0)) screenclean();
 
   // kill the activity LED unless pause button pressed
   if (pausetimer == 0) analogWrite(LED, 0); 
@@ -767,16 +830,18 @@ void loop(void)
       timeout = millis() + updateinterval; // and start the clock
     }
   
-    if (maxfail != -1) {
+    if (maxfail != 0) {
       // once max number of failed requests is reached, show 'waiting for printer'
       if ( noreply == maxfail ) commwait();
     }
 
     while ( millis() <= timeout && !jsonstart )
-    {
-      // check button and look for a '{' on the serial port for a time defined by 'updateinterval'
+    { // look for a '{' on the serial port for a time defined by 'updateinterval'
+      // first, check button 
       handlebutton();
+      // delay for a ms
       delay(1);
+      // set flag if '{' on the serial port
       if (Serial.read() == '{')
       {
         // flag to exit the nested while loops and process input
