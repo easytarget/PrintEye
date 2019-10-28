@@ -27,10 +27,18 @@ The hardware for this is as important as the software; it runs on a standlaone A
 ## Requirements 
 * You need to include the [U8glib](https://github.com/olikraus/u8g2/) Graphics library for the displays; this is available in the ArduinoIDE; search for 'U8g2' in the library manager, or follow instructions [here](https://github.com/olikraus/u8g2/wiki) 
 * The Jsmn library (https://github.com/zserge/jsmn) is included with the sketch.
-* I used a FTDI adapter to do the programming and serial debugging during development; the circuit incorporates a the correct reset pin pullup+capacitor to allow low voltage in-circuit reprogramming.
+* The Arduino MemoryFree lib was used during debug (see comments and `#define DEBUG` in code).
+### Bootloader
+Printeye is designed with the current 'Vanilla' Arduino Uno bootloader in mind; aka [Optiboot](https://github.com/Optiboot/optiboot), this is an excellent bootloader with a very small (512Byte) footprint.
+It does work with the 2K bootloader in the Adafruit Pro Trinket I used for development, but free memory for program space is very low with this.
+*
+* To do the actual programming I used a FTDI adapter to do the programming and serial debugging during development; the circuit incorporates a the correct reset pin pullup+capacitor to allow low voltage in-circuit reprogramming.
   * For more on FTDI programmers see https://learn.adafruit.com/ftdi-friend/overview
   * I found I had to leave my FTDI programmer set to 5v for reliable programming of the final PCB; it would frequently fail to detect the reset pulldown otherwise.
-* The Arduino MemoryFree lib was used during debug (see comments and `#define DEBUG` in code).
+  * I actually started with a vanilla (no bootloader) chip and had to first use [Nick Gammons Bootloader](http://www.gammon.com.au/bootloader) and my Arduino Uno to put optiboot on the vanilla chip and set the fuses initially.
+### Bootloader part two; MiniCore.
+I have subsequently found [MiniCore](https://github.com/MCUdude/MiniCore), which is one of a number of Optiboot implementations geared towards bare bones and breadboarded systems. It allows basic fuse choices such as CPU external frequency selection and brownout configuration to be set in tha Arduino IDE boards section easily. 
+* Make sure to enable LTO (link time optimisation) in the settings too, this saves quite a lot of memory and ram.
 
 ## Development
 I used the Arduino IDE for development and testing; and did a lot of work using the serial monitor to debug the printer operation after capturing a lot of typical `M408` responses at the start of the project ([see this](./tools/M408log.txt))
@@ -51,20 +59,33 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
 * `{"pe_saver":boolean}`
   * If true enter sleep mode when printer status = 'O' (Vin off)
   * Default: true
-* `{"pe_pause":integer}`
-  * Number of ms the button must be held to trigger a pause (`M25`) while printing, and resume (`M24`) when paused
-  * Set to zero to disable the pause button
-  * Setting this longer than the updateinterval might produce activity LED weirdness and laggy response
+* `{"pe_bdelay":integer}`
+  * Number of ms the button must be held to trigger
   * Default: 333
+* `{"pe_bcfg":integer}`
+  * Button Config / Action, as below.
+   *  0 == Disabled (default)
+   *  1 == pause (M25) while printing, resume (M24) when paused, otherwise nothing
+   *  3 == pause (M25) while printing, resume (M24) when paused, Octoprint action when busy. (NOT YET IMPLEMENTED)
+   * 11 == pause (M25) while printing, resume (M24) when paused, M112 in Idle/standby only (NOT YET IMPLEMENTED)
+   * 22 == pause (M25) while printing, resume (M24) when paused, Octoprint action when busy, M112 in all other states (NOT YET IMPLEMENTED)
+   * 33 == pause (M25) while printing, resume (M24) when paused, M112 in all other states (NOT YET IMPLEMENTED)
+   * 99 == Send Emergency stop M112 in all states (NOT YET IMPLEMENTED)
+  * LED will flash full power while button pressed and enabled, ignoring the brightness setting
 * `{"pe_led":byte}`
-  * Brightness level (0-255) for the activity LED, set to 0 to disable
+  * Brightness level: (0-255) for the activity LED, set to 0 to disable
   * Default: 80
-* `{"pe_lmsg":"string"}` & `{"pe_rmsg":"string"}`
+* `{"pe_imsg":"string"}`
+  * IdleText, Twenty character maximum, 
+  * The first ten character are the 'left' text, the next ten are 'right'.
   * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
   * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there
 
 The Jsmn library provides some robustness in processing key/value pairs (in the use of quotes etc); but the Json must be structually correct and terminated.
 * Be aware that you need to repeat double quotes to pass them via 'M118'.
+
+### Octoprint
+To be continued..
 
 ### Examples; 
 Disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`

@@ -82,13 +82,13 @@ byte maxfail = 6;                   // max failed requests before entering comms
 bool screensave = true;             // Go into screensave when controller reports PSU off (status 'O')
 byte bright = 128;                  // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
 unsigned int buttoncontrol = 333;   // Hold-down delay for button, 0=disabled, max=(updateinterval-100)
-byte buttonconfig = 0;              // Action control for button.
+byte buttonconfig = 0;              // Action config for button (0=no action, 1=M24/M25, see README for more).
 byte activityled = 80;              // Activity LED brightness (0 to disable)
 char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle display (left 10 chars)
 char rtext[11] = "          ";      // Status line for the off/idle display (right 10 chars)
 
 // PrintEye internal 
-byte noreply = 1;         // count failed requests (default: assume we have already missed some)
+byte noreply = 1;         // count failed requests (default: assume we have already missed one)
 byte currentbright = 0;   // track changes to brightness
 bool screenpower = true;  // OLED power status
 
@@ -267,10 +267,9 @@ bool setbrightness()
   if ( bright > 0 ) return (true); else return (false);
 }
 
-// Print current progress
+// Print padded current progress on right display and blank rest of line
 void printprogress()
 {
-  // Padded progress display on right oled.
   ROLED.print(F("  "));
   if ( done < 100 ) ROLED.print(' ');
   if ( done < 10 ) ROLED.print(' ');
@@ -278,6 +277,11 @@ void printprogress()
   ROLED.print(F("%    "));
 }
 
+// Print 10 space chars on r/h display, saves a bunch of progmem since I do it a lot.
+void blankright()
+{
+  ROLED.print(F("          "));
+}
 
 /*   Update The Displays   */ 
 
@@ -310,7 +314,7 @@ void updatedisplay()
     if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) // 'SHOWSTATUS' displays actual state
     {
       LOLED.print(F(" Sleep    "));
-      ROLED.print(F("          "));
+      blankright();
     }
     else 
     {
@@ -323,7 +327,7 @@ void updatedisplay()
     if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) // 'SHOWSTATUS' displays actual state
     {
       LOLED.print(F(" Idle     "));
-      ROLED.print(F("          "));
+      blankright();
     }
     else
     {
@@ -349,7 +353,7 @@ void updatedisplay()
   else if (printerstatus == 'T' )
   {
     LOLED.print(F(" Tool     "));
-    ROLED.print(F("          "));
+    blankright();
   }
   else if (printerstatus == 'D' )
   {
@@ -369,33 +373,34 @@ void updatedisplay()
   else if (printerstatus == 'S' )
   {
     LOLED.print(F(" Stopped  "));
-    ROLED.print(F("          "));
+    blankright();
   }
   else if (printerstatus == 'C' )
   {
     LOLED.print(F(" Config   "));
-    ROLED.print(F("          "));
+    blankright();
   }
   else if (printerstatus == 'F' )
   {
     LOLED.print(F(" Updating "));
-    ROLED.print(F("          "));
+    blankright();
   }
   else if (printerstatus == 'H' )
   {
     LOLED.print(F(" Halted  "));
-    ROLED.print(F("          "));
+    blankright();
   }
   else if (printerstatus == '-' )
   {
     LOLED.print(F("Connecting")); // never set by the printer, used during init.
-    ROLED.print(F("          "));
+    blankright();
   }
   else
   {
+    LOLED.print(' '); // pad
     LOLED.print(printerstatus);  // Oops; has someone added a new status?
-    LOLED.print(F("         ")); // show it and blank rest
-    ROLED.print(F("          "));
+    LOLED.print(F("        ")); // show it and blank rest
+    blankright();
   }
   
   handlebutton(); // catch the pause button
@@ -540,7 +545,7 @@ void handlebutton()
 {
   // Process the button state and send pause/resume as appropriate
   
-  if (buttoncontrol == 0) return; // fast exit if pause disabled 
+  if (buttoncontrol == 0) return; // fast exit if disabled 
   
   if (digitalRead(BUTTON)) // button is active low.
   {
@@ -561,27 +566,25 @@ void handlebutton()
     analogWrite(LED,0); // led off
     return; 
   }
-  else // Button pressed until activated, process according to state and config
-  if ((printerstatus == 'P') || (printerstatus == 'A')) 
-  {
-    // Button is pressed while printing or paused
-    if (pausetimer == 0) 
-    { 
-      pausetimer = millis(); // start timer as needed
-      analogWrite(LED,255); // led on full
-      #ifdef DEBUG 
-        Serial.println(F("Pausetimer Started")); 
-      #endif
-    }
+  else // Look to see if we need to start timer
+  if (pausetimer == 0) 
+  { 
+    pausetimer = millis(); // start timer as needed
+    #ifdef DEBUG 
+      Serial.println(F("Pausetimer Started")); 
+    #endif
+  }
 
-    // When timer expires take action
-    if (millis() > (pausetimer + buttoncontrol)) 
-    {
-      // Button held down for timeout; send commands as appropriate;
-      if (printerstatus == 'A') Serial.println(F("M24*75"));
-      if (printerstatus == 'P') Serial.println(F("M25*74"));
-      pausetimer = -1; // -1 means we have sent the command
-    }
+  // Button is pressed and active, turn LED on.
+  analogWrite(LED,255); // led on full
+
+  // When timer expires take action
+  if (millis() > (pausetimer + buttoncontrol)) 
+  {
+    // Button held down for timeout; send commands as appropriate;
+    if (printerstatus == 'A') Serial.println(F("M24*75"));
+    if (printerstatus == 'P') Serial.println(F("M25*74"));
+    pausetimer = -1; // -1 means we have sent the command and halts the cycle till the button is released
   }
 }
 
@@ -704,7 +707,7 @@ bool jsonparser()
           if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; 
           else { screensave = false; if (!screenpower) screenwake(); } // force screen on.
         }
-        else if( strcmp_P(result, PSTR("pe_bctl")) == 0 )
+        else if( strcmp_P(result, PSTR("pe_bdelay")) == 0 )
         {
           buttoncontrol = atoi(value);
         }
