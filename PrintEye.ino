@@ -84,7 +84,7 @@ byte bright = 128;                  // Screen brightness (0-255, sets OLED 'cont
 unsigned int buttoncontrol = 333;   // Hold-down delay for button, 0=disabled, max=(updateinterval-100)
 byte buttonconfig = 0;              // Action config for button (0=no action, 1=M24/M25, see README for more).
 byte activityled = 80;              // Activity LED brightness (0 to disable)
-char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle display (left 10 chars)
+char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle/busy display (left 10 chars)
 char rtext[11] = "          ";      // Status line for the off/idle display (right 10 chars)
 
 // PrintEye internal 
@@ -581,7 +581,7 @@ void handlebutton()
   // When timer expires take action
   if (millis() > (pausetimer + buttoncontrol)) 
   {
-    // Send commands as appropriate depending on current status
+    // Send commands as appropriate depending on current status and action config
     if (buttonconfig == 1)
     {
       rrfpauseresume();
@@ -617,7 +617,7 @@ void handlebutton()
     {
       rrfemergencystop();
     }
-    pausetimer = -1; // -1 means we have sent the command and halts the cycle till the button is released
+    pausetimer = -1; // -1 means we have sent the command (halts the cycle till the button is released)
   }
 }
 
@@ -631,7 +631,7 @@ void rrfpauseresume()
 }
 
 void rrfemergencystop()
-{  // send a M112 to Duet to trigger a emergency stop
+{  // send M112 to RRF/Duet to trigger an emergency stop
   Serial.println(F("M112*127"));
   // Screen Display?
 }
