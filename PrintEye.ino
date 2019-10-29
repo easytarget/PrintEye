@@ -605,13 +605,13 @@ void handlebutton()
     else if (buttonconfig == 33) 
     {
       rrfpauseresume();
-      if (!strchr_P(PSTR("AP"),printerstatus)) rrfemergencystop();
+      if (!strchr_P(PSTR("APDR"),printerstatus)) rrfemergencystop();
     }
     else if (buttonconfig == 44) 
     {
       rrfpauseresume();
       octoaction();
-      if (!strchr_P(PSTR("APB"),printerstatus)) rrfemergencystop();
+      if (!strchr_P(PSTR("APDRB"),printerstatus)) rrfemergencystop();
     }
     else if (buttonconfig == 99) 
     {
@@ -625,15 +625,24 @@ void handlebutton()
 
 void rrfpauseresume()
 {  // send a RRF/Duet pause or resume as appropriate
-  if (printerstatus == 'A') Serial.println(F("M24*75"));
-  if (printerstatus == 'P') Serial.println(F("M25*74"));
-  // Screen Display?
+  if (printerstatus == 'A') 
+  {
+    Serial.println(F("M24*75"));
+  }
+  if (printerstatus == 'P')
+  {
+    Serial.println(F("M25*74"));
+  }
 }
 
 void rrfemergencystop()
 {  // send M112 to RRF/Duet to trigger an emergency stop
   Serial.println(F("M112*127"));
-  // Screen Display?
+  LOLED.setCursor(0, 6);
+  ROLED.setCursor(0, 6);
+  LOLED.print(F(" EMERGENCY")); 
+  ROLED.print(F("---STOP---")); 
+  delay(500); //half second hold for processing and display
 }
 
 void octoaction()
@@ -641,7 +650,6 @@ void octoaction()
   if (printerstatus == 'B')
   { 
     Serial.println(F("[OCTOPRINT]")); // dummy for testing
-    // Screen Display?
   }
 }
 

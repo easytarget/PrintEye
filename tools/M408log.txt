@@ -6,9 +6,10 @@ defaults:
        fails:6
       bright:128
        saver:true
-       pause:333
+        bctl:333
+        bcfg:0
          led:80
-   lmsg,rmsg:"SHOWSTATUS","          "
+        imsg:"SHOWSTATUS"
 
 {"pe_rate":10000}
 {"pe_fails":-1}
@@ -18,10 +19,10 @@ defaults:
 {"pe_bright":255}
 {"pe_saver":true}
 {"pe_saver":false}
-{"pe_pause":0}
-{"pe_pause":500}
-pe_bctl
-pe_bcfg
+{"pe_bctl":0}
+{"pe_bctl":500}
+{"pe_bcfg:1}
+{"pe_bcfg:99}
 {"pe_led":0}
 {"pe_led":64}
 {"pe_led":255}
