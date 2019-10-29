@@ -65,11 +65,12 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
 * `{"pe_bcfg":integer}`
   * Button Config / Action, as below.
    *  0 == Disabled (default)
-   *  1 == pause (M25) while printing, resume (M24) when paused, otherwise nothing
-   *  3 == pause (M25) while printing, resume (M24) when paused, Octoprint action when busy. (NOT YET IMPLEMENTED)
-   * 11 == pause (M25) while printing, resume (M24) when paused, M112 in Idle/standby only (NOT YET IMPLEMENTED)
-   * 22 == pause (M25) while printing, resume (M24) when paused, Octoprint action when busy, M112 in all other states (NOT YET IMPLEMENTED)
-   * 33 == pause (M25) while printing, resume (M24) when paused, M112 in all other states (NOT YET IMPLEMENTED)
+   *  1 == pause (M25) if printing, resume (M24) if paused, otherwise nothing
+   *  2 == pause (M25) if printing, resume (M24) if paused, Octoprint action if busy. (NOT YET IMPLEMENTED)
+   * 11 == pause (M25) if printing, resume (M24) if paused, M112 in Idle/Standby (NOT YET IMPLEMENTED)
+   * 22 == pause (M25) if printing, resume (M24) if paused, Octoprint action if busy, M112 in Idle/Standby (NOT YET IMPLEMENTED)
+   * 33 == pause (M25) if printing, resume (M24) if paused, M112 in all other states (NOT YET IMPLEMENTED)
+   * 44 == pause (M25) if printing, resume (M24) if paused, Octoprint action if busy, M112 in all other states (NOT YET IMPLEMENTED)
    * 99 == Send Emergency stop M112 in all states (NOT YET IMPLEMENTED)
   * LED will flash full power while button pressed and enabled, ignoring the brightness setting
 * `{"pe_led":byte}`

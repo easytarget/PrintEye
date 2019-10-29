@@ -581,12 +581,70 @@ void handlebutton()
   // When timer expires take action
   if (millis() > (pausetimer + buttoncontrol)) 
   {
-    // Button held down for timeout; send commands as appropriate;
-    if (printerstatus == 'A') Serial.println(F("M24*75"));
-    if (printerstatus == 'P') Serial.println(F("M25*74"));
+    // Send commands as appropriate depending on current status
+    if (buttonconfig == 1)
+    {
+      rrfpauseresume();
+    }
+    else if (buttonconfig == 2) 
+    {
+      rrfpauseresume();
+      octoaction();
+    }
+    else if (buttonconfig == 11) 
+    {
+      rrfpauseresume();
+      if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
+    }
+    else if (buttonconfig == 22) 
+    {
+      rrfpauseresume();
+      octoaction();
+      if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
+    }
+    else if (buttonconfig == 33) 
+    {
+      rrfpauseresume();
+      if (!strchr_P(PSTR("AP"),printerstatus)) rrfemergencystop();
+    }
+    else if (buttonconfig == 44) 
+    {
+      rrfpauseresume();
+      octoaction();
+      if (!strchr_P(PSTR("APB"),printerstatus)) rrfemergencystop();
+    }
+    else if (buttonconfig == 99) 
+    {
+      rrfemergencystop();
+    }
     pausetimer = -1; // -1 means we have sent the command and halts the cycle till the button is released
   }
 }
+
+// Functions to assist the button actions
+
+void rrfpauseresume()
+{  // send a RRF/Duet pause or resume as appropriate
+  if (printerstatus == 'A') Serial.println(F("M24*75"));
+  if (printerstatus == 'P') Serial.println(F("M25*74"));
+  // Screen Display?
+}
+
+void rrfemergencystop()
+{  // send a M112 to Duet to trigger a emergency stop
+  Serial.println(F("M112*127"));
+  // Screen Display?
+}
+
+void octoaction()
+{  // cycle between a pause/resume octoprint action command. Not Implemented
+  if (printerstatus == 'B')
+  { 
+    Serial.println(F("[OCTOPRINT]")); // dummy for testing
+    // Screen Display?
+  }
+}
+
 
 
 /*    JSON processing    */

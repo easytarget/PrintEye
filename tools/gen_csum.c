@@ -18,5 +18,6 @@ void main()
   csum("M408 S0");
   csum("M24");
   csum("M25");
+  csum("M112");
 }
 
