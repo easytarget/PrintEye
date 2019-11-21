@@ -61,11 +61,12 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
   * Default: true
 * `{"pe_bdelay":integer}`
   * Number of ms the button must be held to trigger
+  * 0 will disable the Button completely
   * Default: 333
 * `{"pe_bcfg":integer}`
   * Button Config / Action, as below.
-   *  0 == Disabled (default)
-   *  1 == Duet pause/resume in printing states, otherwise nothing
+   *  0 == No Action
+   *  1 == Duet pause/resume in printing states, otherwise nothing. (Default)
    *  2 == Duet pause/resume in printing states, Octoprint pause/resume if Busy.
    * 11 == Duet pause/resume in printing states, M112 in Idle/Standby
    * 22 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in Idle/Standby

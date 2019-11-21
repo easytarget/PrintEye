@@ -82,7 +82,7 @@ byte maxfail = 6;                   // max failed requests before entering comms
 bool screensave = true;             // Go into screensave when controller reports PSU off (status 'O')
 byte bright = 128;                  // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
 unsigned int buttoncontrol = 333;   // Hold-down delay for button, 0=disabled, max=(updateinterval-100)
-byte buttonconfig = 0;              // Action config for button (0=no action, 1=M24/M25, see README for more).
+byte buttonconfig = 1;              // Action config for button (0=no action, 1=M24/M25, see README for more).
 byte activityled = 80;              // Activity LED brightness (0 to disable)
 char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle/busy display (left 10 chars)
 char rtext[11] = "          ";      // Status line for the off/idle display (right 10 chars)
@@ -619,17 +619,18 @@ void handlebutton()
     }
     else if (buttonconfig == 33) 
     {
-      rrfpauseresume();
-      if (!strchr_P(PSTR("APDR"),printerstatus)) rrfemergencystop();
+      if (rrfpauseresume()) break;
+      rrfemergencystop();
     }
     else if (buttonconfig == 44) 
     {
-      rrfpauseresume();
-      octoaction();
-      if (!strchr_P(PSTR("APDRB"),printerstatus)) rrfemergencystop();
+      if (rrfpauseresume()) break;
+      if (octoaction()) break;
+      rrfemergencystop();
     }
     else if (buttonconfig == 99) 
     {
+      // Always send M112, irrespective of state.
       rrfemergencystop();
     }
     pausetimer = -1; // -1 means we have sent the command (halts the cycle till the button is released)
@@ -638,16 +639,19 @@ void handlebutton()
 
 // Functions to assist the button actions
 
-void rrfpauseresume()
+bool rrfpauseresume()
 {  // send a RRF/Duet pause or resume as appropriate
   if (printerstatus == 'A') 
   {
     sendwithcsum(PSTR("M24"));
+    return(true);
   }
-  if (printerstatus == 'P')
+  else if (printerstatus == 'P')
   {
     sendwithcsum(PSTR("M25"));
+    return(true);
   }
+  return(false);
 }
 
 void rrfemergencystop()
@@ -660,7 +664,7 @@ void rrfemergencystop()
   delay(500); //half second hold for processing and display
 }
 
-void octoaction()
+bool octoaction()
 {  // cycle between a pause/resume octoprint action command. Not Implemented
   if (printerstatus == 'B')
   { 
@@ -674,7 +678,9 @@ void octoaction()
       sendwithcsum(PSTR("M118 \"//action:resume\"")); // tell Duet to send octoprint action command
       octopaused = false;
     }
+    return(true);
   }
+  return(false);
 }
 
 /*    JSON processing    */
