@@ -107,6 +107,8 @@ byte heaterdecimal[HEATERS];
 
 // A time store for the pause button
 unsigned long pausetimer = 0;
+// Track whether we have sent Octoprint a pausecommand
+bool octopaused = false;
 
 
 /*    Setup    */
@@ -537,9 +539,22 @@ void updatedisplay()
   ROLED.print(char(176)); // degrees symbol
 }
 
+/* Send to Printer with a checksum */
+
+void sendwithcsum(char cmd[24])
+{
+  int cs = 0;
+  for(int i = 0; cmd[i] != '*' && cmd[i] != NULL; i++)
+   cs = cs ^ cmd[i];
+  cs &= 0xff;  // Only the lower bits
+  Serial.print(cmd);
+  Serial.print("*");
+  Serial.println(cs);
+}
+
 /*    Button    */
 
-// Note; this would be better handled by a pin interrupt, however this works and is easier.
+// Note; Button detection would be better handled by a pin interrupt, but regular polling also works, and is easier.
 // I simply repeatedly call this routine while updating the display or waiting for data
 void handlebutton()
 {
@@ -627,17 +642,17 @@ void rrfpauseresume()
 {  // send a RRF/Duet pause or resume as appropriate
   if (printerstatus == 'A') 
   {
-    Serial.println(F("M24*75"));
+    sendwithcsum(PSTR("M24"));
   }
   if (printerstatus == 'P')
   {
-    Serial.println(F("M25*74"));
+    sendwithcsum(PSTR("M25"));
   }
 }
 
 void rrfemergencystop()
 {  // send M112 to RRF/Duet to trigger an emergency stop
-  Serial.println(F("M112*127"));
+  sendwithcsum(PSTR("M112"));
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
   LOLED.print(F(" EMERGENCY")); 
@@ -649,11 +664,18 @@ void octoaction()
 {  // cycle between a pause/resume octoprint action command. Not Implemented
   if (printerstatus == 'B')
   { 
-    Serial.println(F("[OCTOPRINT]")); // dummy for testing
+    if (!octopaused) 
+    {
+      sendwithcsum(PSTR("M118 \"//action:pause\"")); // tell Duet to send octoprint action command
+      octopaused = true;
+    }
+    else
+    {
+      sendwithcsum(PSTR("M118 \"//action:resume\"")); // tell Duet to send octoprint action command
+      octopaused = false;
+    }
   }
 }
-
-
 
 /*    JSON processing    */
 
@@ -895,7 +917,7 @@ void loop(void)
   {
     if ( millis() > timeout ) {
       // Send the Magic command to ask for Json data (with checksum).
-      Serial.println(F("M408 S0*50"));
+      sendwithcsum(PSTR("M408 S0"));
       timeout = millis() + updateinterval; // and start the clock
     }
   
