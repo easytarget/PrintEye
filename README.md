@@ -65,13 +65,13 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
 * `{"pe_bcfg":integer}`
   * Button Config / Action, as below.
    *  0 == Disabled (default)
-   *  1 == pause (M25) if printing, resume (M24) if paused, otherwise nothing
-   *  2 == pause (M25) if printing, resume (M24) if paused, Octoprint action if busy. (NOT YET IMPLEMENTED)
-   * 11 == pause (M25) if printing, resume (M24) if paused, M112 in Idle/Standby (NOT YET IMPLEMENTED)
-   * 22 == pause (M25) if printing, resume (M24) if paused, Octoprint action if busy, M112 in Idle/Standby (NOT YET IMPLEMENTED)
-   * 33 == pause (M25) if printing, resume (M24) if paused, M112 in all other states (NOT YET IMPLEMENTED)
-   * 44 == pause (M25) if printing, resume (M24) if paused, Octoprint action if busy, M112 in all other states (NOT YET IMPLEMENTED)
-   * 99 == Send Emergency stop M112 in all states (NOT YET IMPLEMENTED)
+   *  1 == Duet pause/resume in printing states, otherwise nothing
+   *  2 == Duet pause/resume in printing states, Octoprint pause/resume if Busy.
+   * 11 == Duet pause/resume in printing states, M112 in Idle/Standby
+   * 22 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in Idle/Standby
+   * 33 == Duet pause/resume in printing states, M112 in all other states
+   * 44 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in all other states
+   * 99 == Send Emergency stop M112 in all states
   * LED will flash full power while button pressed and enabled, ignoring the brightness setting
 * `{"pe_led":byte}`
   * Brightness level: (0-255) for the activity LED, set to 0 to disable
@@ -86,7 +86,7 @@ The Jsmn library provides some robustness in processing key/value pairs (in the 
 * Be aware that you need to repeat double quotes to pass them via 'M118'.
 
 ### Octoprint
-To be continued..
+Needs expanding
 
 ### Examples; 
 Disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`
