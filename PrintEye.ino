@@ -541,13 +541,14 @@ void updatedisplay()
 
 /* Send to Printer with a checksum */
 
-void sendwithcsum(char cmd[24])
+void sendwithcsum(char cmd[])   // cmd[] is assumed to be in PROGMEM...
 {
   int cs = 0;
-  for(int i = 0; cmd[i] != '*' && cmd[i] != NULL; i++)
-   cs = cs ^ cmd[i];
+  for(int i = 0; pgm_read_byte_near(cmd+i) != '*' && pgm_read_byte_near(cmd+i) != NULL; i++) {
+   Serial.write(pgm_read_byte_near(cmd+i));
+   cs = cs ^ pgm_read_byte_near(cmd+i);
+  }
   cs &= 0xff;  // Only the lower bits
-  Serial.print(cmd);
   Serial.print("*");
   Serial.println(cs);
 }
@@ -596,42 +597,38 @@ void handlebutton()
   // When timer expires take action
   if (millis() > (pausetimer + buttoncontrol)) 
   {
+    switch(buttonconfig) {
     // Send commands as appropriate depending on current status and action config
-    if (buttonconfig == 1)
-    {
+    case 1:
       rrfpauseresume();
-    }
-    else if (buttonconfig == 2) 
-    {
+      break;
+    case 2:
       rrfpauseresume();
-      octoaction();
-    }
-    else if (buttonconfig == 11) 
-    {
+      octopauseresume();
+      break;
+    case 11:
       rrfpauseresume();
       if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
-    }
-    else if (buttonconfig == 22) 
-    {
+      break;
+    case 22:
       rrfpauseresume();
-      octoaction();
+      octopauseresume();
       if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
-    }
-    else if (buttonconfig == 33) 
-    {
+      break;
+    case 33: 
       if (rrfpauseresume()) break;
       rrfemergencystop();
-    }
-    else if (buttonconfig == 44) 
-    {
+      break;
+    case 44: 
       if (rrfpauseresume()) break;
-      if (octoaction()) break;
+      if (octopauseresume()) break;
       rrfemergencystop();
-    }
-    else if (buttonconfig == 99) 
-    {
-      // Always send M112, irrespective of state.
-      rrfemergencystop();
+      break;
+    case 99: 
+      rrfemergencystop(); // always do a stop
+      break;
+    default:
+      break; // do nothing..
     }
     pausetimer = -1; // -1 means we have sent the command (halts the cycle till the button is released)
   }
@@ -664,7 +661,7 @@ void rrfemergencystop()
   delay(500); //half second hold for processing and display
 }
 
-bool octoaction()
+bool octopauseresume()
 {  // cycle between a pause/resume octoprint action command. Not Implemented
   if (printerstatus == 'B')
   { 
@@ -924,6 +921,7 @@ void loop(void)
     if ( millis() > timeout ) {
       // Send the Magic command to ask for Json data (with checksum).
       sendwithcsum(PSTR("M408 S0"));
+      //sendwithcsum("M408 S0");
       timeout = millis() + updateinterval; // and start the clock
     }
   
