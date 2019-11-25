@@ -7,7 +7,7 @@ defaults:
       bright:128
        saver:true
         bctl:333
-        bcfg:0
+        bcfg:1
          led:80
         imsg:"SHOWSTATUS"
 
@@ -19,10 +19,10 @@ defaults:
 {"pe_bright":255}
 {"pe_saver":true}
 {"pe_saver":false}
-{"pe_bctl":0}
-{"pe_bctl":500}
-{"pe_bcfg:1}
-{"pe_bcfg:99}
+{"pe_bdelay":0}
+{"pe_bdelay":500}
+{"pe_bcfg":1}
+{"pe_bcfg":99}
 {"pe_led":0}
 {"pe_led":64}
 {"pe_led":255}

@@ -32,7 +32,8 @@
 #include "jsmn.h"
 
 // Pinout
-#define LED 9          // pwm capable O/P for the led
+//#define LED 9          // pwm capable O/P for the led
+#define LED 13         // pwm capable O/P for the led
 #define BUTTON 10      // pause button pin
 
 // I2C Left display
@@ -630,7 +631,7 @@ void handlebutton()
     default:
       break; // do nothing..
     }
-    pausetimer = -1; // -1 means we have sent the command (halts the cycle till the button is released)
+    pausetimer = -1;    // -1 means we have sent the command (halts the cycle till the button is released)
   }
 }
 
@@ -654,11 +655,17 @@ bool rrfpauseresume()
 void rrfemergencystop()
 {  // send M112 to RRF/Duet to trigger an emergency stop
   sendwithcsum(PSTR("M112"));
+  analogWrite(LED,0); // led off
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
   LOLED.print(F(" EMERGENCY")); 
-  ROLED.print(F("---STOP---")); 
-  delay(500); //half second hold for processing and display
+  ROLED.print(F("---STOP---"));
+  for (int a=0; a<5; a++) { //half second hold for processing and display
+    analogWrite(LED,255); // led on
+    delay(50);            // hold for processing and display
+    analogWrite(LED,0);   // led off
+    delay(50);            // hold for processing and display
+  }
 }
 
 bool octopauseresume()
@@ -667,12 +674,12 @@ bool octopauseresume()
   { 
     if (!octopaused) 
     {
-      sendwithcsum(PSTR("M118 \"//action:pause\"")); // tell Duet to send octoprint action command
+      sendwithcsum(PSTR("M118 P2 S\"//action:pause\"")); // tell Duet to send octoprint action command
       octopaused = true;
     }
     else
     {
-      sendwithcsum(PSTR("M118 \"//action:resume\"")); // tell Duet to send octoprint action command
+      sendwithcsum(PSTR("M118 P2 S\"//action:resume\"")); // tell Duet to send octoprint action command
       octopaused = false;
     }
     return(true);
