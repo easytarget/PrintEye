@@ -1,5 +1,5 @@
 A good start when debugging/testing:
-{"pe_rate":4000,"pe_fails":-1}
+{"pe_rate":4000,"pe_fails":0}
 
 defaults: 
         rate:1000
@@ -12,7 +12,7 @@ defaults:
         imsg:"SHOWSTATUS"
 
 {"pe_rate":10000}
-{"pe_fails":-1}
+{"pe_fails":0}
 {"pe_fails":6}
 {"pe_bright":0}
 {"pe_bright":32}

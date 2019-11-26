@@ -32,8 +32,7 @@
 #include "jsmn.h"
 
 // Pinout
-//#define LED 9          // pwm capable O/P for the led
-#define LED 13         // pwm capable O/P for the led
+#define LED 9          // pwm capable O/P for the led
 #define BUTTON 10      // pause button pin
 
 // I2C Left display
@@ -79,7 +78,7 @@ static int index;               // length of the response
 
 // Primary Settings (can also be set via Json messages to serial port, see README)
 unsigned int updateinterval = 1000; // how many ~1ms loops we spend looking for a response after M408
-byte maxfail = 6;                   // max failed requests before entering comms fail mode (0 to disable)
+byte maxfail = 6;                   // max failed requests before entering comms fail mode (-1 to disable)
 bool screensave = true;             // Go into screensave when controller reports PSU off (status 'O')
 byte bright = 128;                  // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
 unsigned int buttoncontrol = 333;   // Hold-down delay for button, 0=disabled, max=(updateinterval-100)
@@ -159,7 +158,6 @@ void setup()
     heaterinteger[a] = 0;
     heaterdecimal[a] = 0;
   }
-
   analogWrite(LED, 0);    // turn the led off
 }
 
@@ -180,7 +178,7 @@ void goblank()
 }
 
 void unblank()
-{ // undark the screen, used in animations
+{ // restore the screen to set brightness, used in animations
   LOLED.setContrast(bright);
   ROLED.setContrast(bright);
 }
@@ -230,9 +228,9 @@ void commwait()
   
   LOLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.setFont(u8x8_font_8x13_1x2_f);
-  LOLED.setCursor(2, 6);
-  ROLED.setCursor(5, 6);
-  LOLED.print(F(" Waiting for "));
+  LOLED.setCursor(3, 6);
+  ROLED.setCursor(4, 6);
+  LOLED.print(F("Waiting for"));
   ROLED.print(F("Printer"));
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
@@ -340,8 +338,9 @@ void updatedisplay()
   }
   else if (printerstatus == 'B' )
   {
-    LOLED.print(F(" Busy     ")); // In busy mode put the
-    ROLED.print(ltext);           // left text on right display 
+    LOLED.print(F(" Busy     ")); // In busy mode put..
+    if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) blankright();// if not default..
+    else ROLED.print(ltext);      // left text on right display.
   }
   else if (printerstatus == 'M' )
   {
@@ -395,8 +394,10 @@ void updatedisplay()
   }
   else if (printerstatus == '-' )
   {
-    LOLED.print(F("Connecting")); // never set by the printer, used during init.
-    blankright();
+    // never set by the printer, might be displayed after init if maxfail=0.
+    LOLED.print(F("  Connecting to")); 
+    ROLED.print(F(" Printer")); 
+    return; // No data has been recieved yet, so dont update anything else
   }
   else
   {
@@ -656,16 +657,26 @@ void rrfemergencystop()
 {  // send M112 to RRF/Duet to trigger an emergency stop
   sendwithcsum(PSTR("M112"));
   analogWrite(LED,0); // led off
-  LOLED.setCursor(0, 6);
-  ROLED.setCursor(0, 6);
-  LOLED.print(F(" EMERGENCY")); 
-  ROLED.print(F("---STOP---"));
+  screenclean();
+  int preservebright = bright;
+  if (bright == 0) bright = 128; // display even when the screen is normally blanked
+  unblank();
+  LOLED.setPowerSave(false);
+  ROLED.setPowerSave(false);
+  bright = preservebright;
+  LOLED.setFont(u8x8_font_8x13_1x2_f);
+  ROLED.setFont(u8x8_font_8x13_1x2_f);
+  LOLED.setCursor(0, 4);
+  ROLED.setCursor(0, 4);
+  LOLED.print(F("    EMERGENCY   ")); 
+  ROLED.print(F("     STOP       "));
   for (int a=0; a<5; a++) { //half second hold for processing and display
     analogWrite(LED,255); // led on
     delay(50);            // hold for processing and display
     analogWrite(LED,0);   // led off
     delay(50);            // hold for processing and display
   }
+  noreply = 0; // start looking for a response again
 }
 
 bool octopauseresume()
@@ -793,8 +804,9 @@ bool jsonparser()
         }
         else if( strcmp_P(result, PSTR("pe_fails")) == 0 )
         {
-          maxfail = atoi(value);
-          if (maxfail == 0) screenclean(); // cleanup when this is set while 'waiting for printer'
+          byte f = atoi(value);
+          if (f != maxfail) screenclean(); // cleanup any existing 'waiting for printer' display
+          maxfail = f;
         }
         else if( strcmp_P(result, PSTR("pe_bright")) == 0 )
         {
@@ -928,7 +940,6 @@ void loop(void)
     if ( millis() > timeout ) {
       // Send the Magic command to ask for Json data (with checksum).
       sendwithcsum(PSTR("M408 S0"));
-      //sendwithcsum("M408 S0");
       timeout = millis() + updateinterval; // and start the clock
     }
   

@@ -51,7 +51,7 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
   * Default: 1000
 * `{"pe_fails":integer}`
   * Maximum number of failures before displaying `Waiting for Printer`
-  * `-1` to prevent entering `Waiting for Printer` state
+  * `0` to prevent entering `Waiting for Printer` state
   * Default: 6
 * `{"pe_bright":byte}`
   * Brightness for display, 0-255, 0 is off
