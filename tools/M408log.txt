@@ -1,5 +1,5 @@
 A good start when debugging/testing:
-{"pe_rate":4000,"pe_fails":0}
+{"pe_rate":8000,"pe_fails":0}
 
 defaults: 
         rate:1000
@@ -28,7 +28,7 @@ defaults:
 {"pe_led":255}
 {"pe_imsg":" Sunflower 10.0.0.40"}
 {"pe_imsg":"SHOWSTATUS"}
-{"pe_imsg":"  YOUR      MESSAGE "}
+{"pe_imsg":"0123456789ABCDEFGHIJ"}
 
 {"status":"O"}
 {"status":"I"}
