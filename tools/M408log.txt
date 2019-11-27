@@ -30,6 +30,12 @@ defaults:
 {"pe_imsg":"SHOWSTATUS"}
 {"pe_imsg":"  YOUR      MESSAGE "}
 
+{"status":"O"}
+{"status":"I"}
+{"status":"B"}
+{"status":"P"}
+{"status":"A"}
+
 
 logging M408 S0
 

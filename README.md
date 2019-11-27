@@ -9,7 +9,8 @@
   * Uses Jsmn (jasmin) to process lots of Json in a smallish footprint.
 * Also responds to some 'config' Json for update speed, brightness, button and [more](#control)
 * Sleep mode when controller reports PSU off, (configurable).
-* Activity LED and Pause button (configurable).
+* Activity LED and Pause/M112 button (configurable).
+* User configurable status line in idle/busy modes
 * Clearly shows when heaters are in a fault state.
 * Plug-n-play with panelDue UART port.
 
@@ -78,7 +79,7 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
   * Brightness level: (0-255) for the activity LED, set to 0 to disable
   * Default: 80
 * `{"pe_imsg":"string"}`
-  * IdleText, Twenty character maximum, 
+  * IdleText, Twenty character maximum. 
   * The first ten character are the 'left' text, the next ten are 'right'.
   * Left and right panel text to be displayed in Idle and Sleep mode, max 10 characters, enclose in quotes.
   * Setting the left text to `SHOWSTATUS` results in the default behaviour of showing the actual status there

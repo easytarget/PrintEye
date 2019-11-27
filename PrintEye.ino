@@ -50,8 +50,8 @@
 // Heater settings are good for a 4 extruder system + bed, everything else is ignored.
 // - Each additional heater adds 8 bytes in global arrays, 4 additional tokens, and ~20 characters of extra Json
 //
-#define JSONSIZE 500    // Json incoming buffer size
-#define MAXTOKENS 86    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
+#define JSONSIZE 512    // Json incoming buffer size
+#define MAXTOKENS 88    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
 #define HEATERS 5       // Bed + Up to 4 extruders
 #define JSONWINDOW 500; // How many ms we allow for the rest of the object to arrive after the '{' is recieved
 
@@ -87,11 +87,6 @@ byte activityled = 80;              // Activity LED brightness (0 to disable)
 char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle/busy display (left 10 chars)
 char rtext[11] = "          ";      // Status line for the off/idle display (right 10 chars)
 
-// PrintEye internal 
-byte noreply = 1;         // count failed requests (default: assume we have already missed one)
-byte currentbright = 0;   // track changes to brightness
-bool screenpower = true;  // OLED power status
-
 // Json derived data:
 char printerstatus = '-'; // from m408 status key, initial value '-' is shown as 'connecting'
 byte toolhead = 0;        // Tool to be monitored (assume E0 by default)
@@ -105,10 +100,13 @@ byte heaterstatus[HEATERS];
 int heaterinteger[HEATERS];
 byte heaterdecimal[HEATERS];
 
-// A time store for the pause button
-unsigned long pausetimer = 0;
-// Track whether we have sent Octoprint a pausecommand
-bool octopaused = false;
+// PrintEye internal 
+byte noreply = 1;             // count failed requests (default: assume we have already missed one)
+byte currentbright = 0;       // track changes to brightness
+bool screenpower = true;      // OLED power status
+unsigned long pausetimer = 0; // A time store for the pause button
+bool octopaused = false;      // Track whether we have sent Octoprint a pausecommand
+bool interstatial = false;    // Are we displaying a splashscreen?
 
 
 /*    Setup    */
@@ -132,7 +130,7 @@ void setup()
   pinMode(BUTTON, INPUT_PULLUP);
   analogWrite(LED, activityled); // blip the LED on while setup runs
 
-  // Get the LED's initialised  asap, begin() will also blank them
+  // Get the OLED's initialised asap, begin() will blank them
   LOLED.begin();
   LOLED.setFlipMode(1);   // as needed
   ROLED.begin();
@@ -183,7 +181,7 @@ void unblank()
   ROLED.setContrast(bright);
 }
 
-// Flash power off icon, blank the screen and turn on powersave
+// Flash power off icon, blank the screen and enter powersave
 void screensleep()
 {
   goblank();
@@ -216,16 +214,14 @@ void screenwake()
   LOLED.print('O'); // Resume icon in this font set
   ROLED.print('O'); // Resume icon in this font set
   unblank();
-  delay(500); // flash the icons then clean and reset screen
-  goblank();
-  unblank();
+  delay(330); // make sure icons are seen
+  interstatial=true;
 }
 
 // Display the 'Waiting for Comms' splash
 void commwait()
 {
   goblank();
-  
   LOLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.setFont(u8x8_font_8x13_1x2_f);
   LOLED.setCursor(3, 6);
@@ -238,42 +234,31 @@ void commwait()
   ROLED.setCursor(6, 1);
   LOLED.print('F'); // comms icon in this font set
   ROLED.print('F'); // comms icon in this font set
-
-  // screen on (even in screensave mode)
-  LOLED.setPowerSave(false); 
-  ROLED.setPowerSave(false);
-
-  int preservebright = bright;
-  if (bright == 0) bright = 1; // display even when the screen is normally blanked
+  interstatial=true;
   unblank();
-  bright = preservebright;
 }
 
 // Set the (non-linear) contrast/brightness level for supported displays
 bool setbrightness()
 { 
-  // Only update brightness when level has been changed
-  // (setContrast() can cause a screen flicker when called).
-  
-  if ( bright != currentbright ) {
-    // Set the new contrast value
-    LOLED.setContrast(bright);
+  // Only update brightness when level has been changed because
+  // setContrast() can cause a screen flicker when called.
+  if (bright != currentbright) 
+  {
+    LOLED.setContrast(bright); // Set the new contrast value
     ROLED.setContrast(bright);
-
-    // remember what we just did
-    currentbright = bright;
+    currentbright = bright;    // remember what we just did
   }
-  
   // return on/off status
-  if ( bright > 0 ) return (true); else return (false);
+  if ((bright > 0) && screenpower) return (true); else return (false);
 }
 
 // Print padded current progress on right display and blank rest of line
 void printprogress()
 {
   ROLED.print(F("  "));
-  if ( done < 100 ) ROLED.print(' ');
-  if ( done < 10 ) ROLED.print(' ');
+  if (done < 100) ROLED.print(' ');
+  if (done < 10) ROLED.print(' ');
   ROLED.print(done);
   ROLED.print(F("%    "));
 }
@@ -300,6 +285,13 @@ void updatedisplay()
 
   int bedset = 0;
   int toolset = 0;
+
+  // If we currently have an interstatial screen clear it.
+  if (interstatial)
+  {
+    screenclean();
+    interstatial = false;
+  }
 
   // First update lower status line
   
@@ -403,7 +395,7 @@ void updatedisplay()
   {
     LOLED.print(' '); // pad
     LOLED.print(printerstatus);  // Oops; has someone added a new status?
-    LOLED.print(F("        ")); // show it and blank rest
+    LOLED.print(F("        "));  // show it and blank rest
     blankright();
   }
   
@@ -656,26 +648,29 @@ bool rrfpauseresume()
 void rrfemergencystop()
 {  // send M112 to RRF/Duet to trigger an emergency stop
   sendwithcsum(PSTR("M112"));
-  analogWrite(LED,0); // led off
+  for (int a=0; a<6; a++) { // furiously flash led a bit
+    analogWrite(LED,255); 
+    delay(25);
+    analogWrite(LED,0);
+    delay(25);
+  }  
   screenclean();
-  int preservebright = bright;
-  if (bright == 0) bright = 128; // display even when the screen is normally blanked
-  unblank();
   LOLED.setPowerSave(false);
   ROLED.setPowerSave(false);
-  bright = preservebright;
+  unblank();
   LOLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.setFont(u8x8_font_8x13_1x2_f);
-  LOLED.setCursor(0, 4);
-  ROLED.setCursor(0, 4);
+  LOLED.setCursor(0, 6);
+  ROLED.setCursor(0, 6);
   LOLED.print(F("    EMERGENCY   ")); 
-  ROLED.print(F("     STOP       "));
-  for (int a=0; a<5; a++) { //half second hold for processing and display
-    analogWrite(LED,255); // led on
-    delay(50);            // hold for processing and display
-    analogWrite(LED,0);   // led off
-    delay(50);            // hold for processing and display
-  }
+  ROLED.print(F("      STOP      "));
+  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  LOLED.setCursor(6, 1);
+  ROLED.setCursor(6, 1);
+  LOLED.print('G'); // exclamation icon in this font set
+  ROLED.print('G'); // exclamation icon in this font set
+
   noreply = 0; // start looking for a response again
 }
 
@@ -780,14 +775,7 @@ bool jsonparser()
         
         if (strcmp_P(result, PSTR("status")) == 0)
         {
-          char oldstatus = printerstatus;
           printerstatus = value[0];
-          if( ((oldstatus == 'I') || (oldstatus == 'O')) && ((printerstatus != 'I') && (printerstatus != 'O')) )
-          {
-            // we are leaving Idle mode, clear idletext
-            LOLED.clearLine(6);LOLED.clearLine(7);
-            ROLED.clearLine(6);ROLED.clearLine(7);
-          }
         }
         else if( strcmp_P(result, PSTR("tool")) == 0 )
         {
@@ -1036,9 +1024,8 @@ void loop(void)
   // Update Screen!
   // First update brightness level as needed (returns true if screen is on, false if blank) 
   // Test if we have had a response during this requestcycle
-  // Determine whether we are in standby mode
-  // Only update the display if needed 
-  if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
+  // Only update the display if both true
+  if (setbrightness() && (noreply == 0)) updatedisplay();
 
   // Now loop back to waiting for Json and sending requests
 }
