@@ -223,7 +223,7 @@ void screenwake()
 void commwait()
 {
   goblank();
-  LOLED.setPowerSave(false); // in case screen is actually off (powersave)
+  LOLED.setPowerSave(false); // in case screen is off (powersave)
   ROLED.setPowerSave(false);
   LOLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.setFont(u8x8_font_8x13_1x2_f);
@@ -651,7 +651,7 @@ void rrfemergencystop()
     delay(25);
   }  
   goblank();
-  LOLED.setPowerSave(false); // in case screen is actually off (powersave)
+  LOLED.setPowerSave(false); // in case screen is currently in powersave
   ROLED.setPowerSave(false);
   LOLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.setFont(u8x8_font_8x13_1x2_f);
@@ -665,6 +665,7 @@ void rrfemergencystop()
   ROLED.drawGlyph(6,1,'G');
   unblank();
   interstatial=true;
+  delay(1500); // Give the printer time to die...
   noreply = 0; // reset reply counter and start looking for a response
 }
 
@@ -674,12 +675,12 @@ bool octopauseresume()
   { 
     if (!octopaused) 
     { // tell Duet to send octoprint action command
-      sendwithcsum(PSTR("M118 P2 S\"//action:pause\""));
+      sendwithcsum(PSTR("M118 P1 S\"//action:pause\""));
       octopaused = true;
     }
     else
     { // tell Duet to send octoprint action command
-      sendwithcsum(PSTR("M118 P2 S\"//action:resume\"")); 
+      sendwithcsum(PSTR("M118 P1 S\"//action:resume\"")); 
       octopaused = false;
     }
     return(true);
@@ -1023,8 +1024,9 @@ void loop(void)
   // also Test if we have had a response during this requestcycle
   // Only update the display if both true
   if (setbrightness() && (noreply == 0)) updatedisplay();
-  
-  // If we have an interstatial (waiting for printer, emergency stop) re enter powersave as needed.
+
+  // If we are in powersave mode and have an interstatial (waiting for printer, emergency stop), 
+  // restore the powersave state
   if (interstatial && !screenpower)
   {
     goblank();
@@ -1033,5 +1035,6 @@ void loop(void)
     interstatial = false;
   }
 
-  // Now loop back to waiting for Json and sending requests
+  
+  // Now loop back to waiting for Json and sending requests 
 }
