@@ -66,14 +66,15 @@ You can use `M118` from the terminal or in your macros to configure the PrintEye
   * Default: 333
 * `{"pe_bcfg":integer}`
   * Button Config / Action, as below.
-   *  0 == No Action
-   *  1 == Duet pause/resume in printing states, otherwise nothing.
-   *  2 == Duet pause/resume in printing states, Octoprint pause/resume if Busy.
-   * 11 == Duet pause/resume in printing states, M112 in Idle/Standby
-   * 22 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in Idle/Standby (default)
-   * 33 == Duet pause/resume in printing states, M112 in all other states
-   * 44 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in all other states
-   * 99 == Send Emergency stop M112 in all states
+    *  0 == No Action
+    *  1 == Duet pause/resume in printing states, otherwise nothing.
+    *  2 == Duet pause/resume in printing states, Octoprint pause/resume if Busy.
+    * 11 == Duet pause/resume in printing states, M112 in Idle/Standby
+    * 22 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in Idle/Standby (default)
+    * 33 == Duet pause/resume in printing states, M112 in all other states
+    * 44 == Duet pause/resume in printing states, Octoprint pause/resume if Busy, M112 in all other states
+    * 99 == Send Emergency stop M112 in all states
+  * Octoprint pause is sent in Busy state, but the resume will be sent from Idle since Octoprint pausing leaves the printer in 'idle'.
   * LED will flash full power while button pressed and enabled, ignoring the brightness setting
 * `{"pe_led":byte}`
   * Brightness level: (0-255) for the activity LED, set to 0 to disable

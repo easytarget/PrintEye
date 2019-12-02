@@ -387,7 +387,7 @@ void updatedisplay()
   }
   else if (printerstatus == '-' )
   {
-    // Dummy initial status, might be displayed after init if maxfail=0.
+    // Dummy initial status, might be displayed if maxfail reset to zero before any M408 response.
     LOLED.print(F("  Connecting to")); 
     ROLED.print(F(" Printer")); 
     return; // No data has been recieved yet, so dont update anything else
@@ -602,7 +602,7 @@ void handlebutton()
       break;
     case 22:
       rrfpauseresume();
-      octopauseresume();
+      if (octopauseresume()) break;
       if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
       break;
     case 33: 
@@ -670,19 +670,19 @@ void rrfemergencystop()
 }
 
 bool octopauseresume()
-{  // cycle between a pause/resume octoprint action command.
-  if (printerstatus == 'B')
+{ // cycle between a pause/resume octoprint action command. 
+  // Pause when busy and unpaused; resume if paused and idle.
+  if (printerstatus == 'B' && !octopaused)
   { 
-    if (!octopaused) 
-    { // tell Duet to send octoprint action command
-      sendwithcsum(PSTR("M118 P1 S\"//action:pause\""));
-      octopaused = true;
-    }
-    else
-    { // tell Duet to send octoprint action command
-      sendwithcsum(PSTR("M118 P1 S\"//action:resume\"")); 
-      octopaused = false;
-    }
+    // Send octoprint pause command when busy 
+    sendwithcsum(PSTR("M118 P1 S\"//action:pause\""));
+    octopaused = true;
+    return(true);
+  }
+  if (printerstatus == 'I' && octopaused)
+  { // Send octoprint resume command from idle state when paused
+    sendwithcsum(PSTR("M118 P1 S\"//action:resume\"")); 
+    octopaused = false;
     return(true);
   }
   return(false);
@@ -928,10 +928,8 @@ void loop(void)
       timeout = millis() + updateinterval; // and start the clock
     }
   
-    if (maxfail != 0) {
-      // once max number of failed requests is reached, show 'waiting for printer'
-      if ( noreply == maxfail ) commwait();
-    }
+    // once max number of failed requests is reached, show 'waiting for printer'
+    if ((noreply ==  maxfail) && (maxfail != 0)) commwait();
 
     while ( millis() <= timeout && !jsonstart )
     { // look for a '{' on the serial port for a time defined by 'updateinterval'
