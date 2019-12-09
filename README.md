@@ -89,9 +89,9 @@ The Jsmn library provides some robustness in processing key/value pairs (in the 
 * Be aware that you need to repeat double quotes to pass them via 'M118'.
 
 ### Octoprint progress display
-I intend to try and re-write the existing OctoPrint progerss display plugin; but that is a future plan. In the menatime a very acceptable workaround has been implemented in Slic3r instead to send the current print height durng printing:
-* I add `M118 P2 S"{""pe_imsg"":"" {round([layer_z] * 100)/100}mm""}" ; progress display` to the `Before Layer Change` script.
-* I also added `M118 P2 S"{""pe_imsg"":""heating up""}" ; Set display message` to the start script, and `M118 P2 S"{""pe_imsg"":""SHOWSTATUS""}"  ; reset the display after print` to the end script to cear the display.
+I intend to try and re-write the existing OctoPrint progress display plugin; but that is a future plan. In the menatime a very acceptable workaround has been implemented in Slic3r instead to send the current print height durng printing:
+* I add `M118 P2 S"{""pe_imsg"":"" {round([layer_z] * 100)/100}mm""}"` to the `Before Layer Change` script.
+* I also added `M118 P2 S"{""pe_imsg"":""heating up""}"` to the start script, and `M118 P2 S"{""pe_imsg"":""SHOWSTATUS""}"` to the end script to cear the display.
 
 ### Examples; 
 Disable sleep mode with `M118 P2 S"{""pe_saver"":false}"`
