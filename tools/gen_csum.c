@@ -18,5 +18,8 @@ void main()
   csum("M408 S0");
   csum("M24");
   csum("M25");
+  csum("M112");
+  csum("M118 P2 S\"//action:pause\"");
+  csum("M118 P2 S\"//action:resume\"");
 }
 

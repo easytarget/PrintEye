@@ -1,32 +1,40 @@
 A good start when debugging/testing:
-{"pe_rate":4000,"pe_fails":-1}
+{"pe_rate":8000,"pe_fails":0}
 
 defaults: 
         rate:1000
        fails:6
       bright:128
        saver:true
-       pause:333
+        bctl:333
+        bcfg:1
          led:80
-   lmsg,rmsg:"SHOWSTATUS","          "
+        imsg:"SHOWSTATUS"
 
 {"pe_rate":10000}
-{"pe_fails":-1}
+{"pe_fails":0}
 {"pe_fails":6}
 {"pe_bright":0}
 {"pe_bright":32}
 {"pe_bright":255}
 {"pe_saver":true}
 {"pe_saver":false}
-{"pe_pause":0}
-{"pe_pause":500}
+{"pe_bdelay":0}
+{"pe_bdelay":500}
+{"pe_bcfg":1}
+{"pe_bcfg":99}
 {"pe_led":0}
 {"pe_led":64}
 {"pe_led":255}
-{"pe_lmsg":" Sunflower","pe_rmsg":" 10.0.0.40"}
-{"pe_lmsg":"SHOWSTATUS","pe_rmsg":"          "}
-{"pe_lmsg":"   LEFT   "}
-{"pe_rmsg":"  RIGHT   "}
+{"pe_imsg":" Sunflower 10.0.0.40"}
+{"pe_imsg":"SHOWSTATUS"}
+{"pe_imsg":"0123456789ABCDEFGHIJ"}
+
+{"status":"O"}
+{"status":"I"}
+{"status":"B"}
+{"status":"P"}
+{"status":"A"}
 
 
 logging M408 S0

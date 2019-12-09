@@ -46,22 +46,27 @@
 
 // Some important limits and allocations
 // - what you set here must stay under available ram 
-// - Allow 150 bytes or so free for allocations during processing and screen updates (found by experiment)
+// - Allow 160 bytes or more free for allocations during processing and screen updates (found by experiment)
 // Heater settings are good for a 4 extruder system + bed, everything else is ignored.
-// - Each additional heater adds 8 bytes in global arrays, 4 additional tokens, and ~20 characters of extra Json
+// - Each additional heater adds 8 bytes in global arrays, 4 additional tokens, 
+//   and ~20 characters of extra Json
 //
-#define JSONSIZE 500    // Json incoming buffer size
-#define MAXTOKENS 86    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
+#define JSONSIZE 508    // Json incoming buffer size
+#define MAXTOKENS 87    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
 #define HEATERS 5       // Bed + Up to 4 extruders
-#define JSONWINDOW 500; // How many ms we allow for the rest of the object to arrive after the '{' is recieved
+#define JSONWINDOW 500; // How many ms allowed for the rest of the object to arrive after '{' is recieved
 
 // U8x8 Contructors for my displays and wiring
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
-U8X8_SSD1306_128X64_NONAME_SW_I2C LOLED(/* clock=*/ SCK1, /* data=*/ SDA1, /* reset=*/ U8X8_PIN_NONE);   // Left OLED
-U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* reset=*/ U8X8_PIN_NONE);   // Right OLED
-//   Hardware I2C works, but the ATMega 328P only has one HW interface available, so if your displays have address conflicts 
-//   (like my cheap ones do) a trick is to use two SW interfaces.
-//   Software (bit-bang)is slow, but so is the update frequency from the controller
+ // Left OLED
+U8X8_SSD1306_128X64_NONAME_SW_I2C LOLED(/* clock=*/ SCK1, /* data=*/ SDA1, /* reset=*/ U8X8_PIN_NONE);
+ // Right OLED
+U8X8_SSD1306_128X64_NONAME_SW_I2C ROLED(/* clock=*/ SCK2, /* data=*/ SDA2, /* reset=*/ U8X8_PIN_NONE);
+
+//  Hardware I2C works, but the ATMega 328P only has one HW I2C interface available, 
+//  and if your displays have address conflicts (like my cheap ones do) a trick is to 
+//  use two Software interfaces.
+//  Software (bit-bang)is much slower, but otherwise just as good.
 
 // During debug I enable this to monitor the free memory during runtime
 #ifdef DEBUG 
@@ -77,23 +82,19 @@ static int index;               // length of the response
 
 // Primary Settings (can also be set via Json messages to serial port, see README)
 unsigned int updateinterval = 1000; // how many ~1ms loops we spend looking for a response after M408
-int maxfail = 6;                    // max failed requests before entering comms fail mode (-1 to disable)
+byte maxfail = 6;                   // max failed requests before entering comms fail mode (-1 to disable)
 bool screensave = true;             // Go into screensave when controller reports PSU off (status 'O')
-byte bright = 128;                  // Screen brightness (0-255, sets OLED 'contrast',0 is off, not linear)
-unsigned int pausecontrol = 333;    // Hold-down delay for pause, 0=disabled, max=(updateinterval-100)
+byte bright = 128;                  // Screen brightness (0-255, sets non-linear OLED 'contrast',0 is off)
+unsigned int buttoncontrol = 333;   // Hold-down delay for button, 0=disabled, max=(updateinterval-100)
+byte buttonconfig = 22;             // Action config for button (see README).
 byte activityled = 80;              // Activity LED brightness (0 to disable)
-char ltext[11] = "SHOWSTATUS";      // Left status line for the idle display (max 10 chars)
-char rtext[11] = "          ";      // Right status line for the idle display (max 10 chars)
-
-// PrintEye internal 
-int noreply = 1;           // count failed requests (default: assume we have already missed some)
-byte currentbright = 0;     // track changes to brightness
-bool screenpower = true;   // OLED power status
+char ltext[11] = "SHOWSTATUS";      // Status line for the off/idle/busy display (left 10 chars)
+char rtext[11] = "          ";      // Status line for the off/idle display (right 10 chars)
 
 // Json derived data:
-char printerstatus = '-';  // from m408 status key, initial value '-' is shown as 'connecting'
-byte toolhead = 0;          // Tool to be monitored (assume E0 by default)
-byte done = 0;             // Percentage printed
+char printerstatus = '-'; // from m408 status key, initial value '-' is shown as 'connecting'
+byte toolhead = 0;        // Tool to be monitored (assume E0 by default)
+byte done = 0;            // Percentage printed
 
 // Heater active, standby and status values for all possible heaters ([0] = bed, [1] = E0, [2] = E1, etc)
 int heateractive[HEATERS];
@@ -103,8 +104,13 @@ byte heaterstatus[HEATERS];
 int heaterinteger[HEATERS];
 byte heaterdecimal[HEATERS];
 
-// A time store for the pause button
-unsigned long pausetimer = 0;
+// PrintEye internal 
+byte noreply = 1;             // count failed requests (default: assume we have already missed one)
+byte currentbright = 0;       // track changes to brightness
+bool screenpower = true;      // OLED power status
+unsigned long pausetimer = 0; // A time store for the pause button
+bool octopaused = false;      // Track whether we have sent Octoprint a pausecommand
+bool interstatial = false;    // Are we displaying a splashscreen?
 
 
 /*    Setup    */
@@ -128,7 +134,7 @@ void setup()
   pinMode(BUTTON, INPUT_PULLUP);
   analogWrite(LED, activityled); // blip the LED on while setup runs
 
-  // Get the LED's initialised  asap, begin() will also blank them
+  // Get the OLED's initialised asap, begin() will blank them
   LOLED.begin();
   LOLED.setFlipMode(1);   // as needed
   ROLED.begin();
@@ -154,7 +160,6 @@ void setup()
     heaterinteger[a] = 0;
     heaterdecimal[a] = 0;
   }
-
   analogWrite(LED, 0);    // turn the led off
 }
 
@@ -163,35 +168,34 @@ void setup()
 
 void screenclean()
 { // clear both oleds, used in animations
-  LOLED.clear();
-  ROLED.clear();
+  goblank();
+  unblank();
 }
 
 void goblank()
 { // darken screen then erase contents, used in animations
   LOLED.setContrast(0);
   ROLED.setContrast(0);
-  screenclean();
+  LOLED.clear();
+  ROLED.clear();
 }
 
 void unblank()
-{ // undark the screen, used in animations
+{ // restore the screen brightness, used in animations
   LOLED.setContrast(bright);
   ROLED.setContrast(bright);
 }
 
-// Flash power off icon, blank the screen and turn on powersave
+// Flash power off icon, blank the screen and enter powersave
 void screensleep()
 {
   goblank();
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6, 1);
-  ROLED.setCursor(6, 1);
-  LOLED.print('N'); // power off icon in this font set
-  ROLED.print('N'); // power off icon in this font set
+  LOLED.drawGlyph(6,1,'N'); // Power off icon in this font set
+  ROLED.drawGlyph(6,1,'N');
   unblank();
-  delay(500); // flash the power off icons
+  delay(333); // flash the power off icons
   goblank();
   LOLED.setPowerSave(true);
   ROLED.setPowerSave(true);
@@ -208,63 +212,63 @@ void screenwake()
   screenpower = true;
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6, 1);
-  ROLED.setCursor(6, 1);
-  LOLED.print('O'); // Resume icon in this font set
-  ROLED.print('O'); // Resume icon in this font set
+  LOLED.drawGlyph(6,1,'O'); // Resume icon in this font set
+  ROLED.drawGlyph(6,1,'O');
   unblank();
-  delay(500); // flash the icons then clean and reset screen
-  goblank();
-  unblank();
+  delay(333); // make sure icons are seen
+  screenclean();
 }
 
 // Display the 'Waiting for Comms' splash
 void commwait()
 {
   goblank();
-  
+  LOLED.setPowerSave(false); // in case screen is off (powersave)
+  ROLED.setPowerSave(false);
   LOLED.setFont(u8x8_font_8x13_1x2_f);
   ROLED.setFont(u8x8_font_8x13_1x2_f);
-  LOLED.setCursor(2, 6);
+  LOLED.setCursor(3, 6);
   ROLED.setCursor(5, 6);
-  LOLED.print(F(" Waiting for "));
+  LOLED.print(F("Waiting for"));
   ROLED.print(F("Printer"));
   LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
   ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
-  LOLED.setCursor(6, 1);
-  ROLED.setCursor(6, 1);
-  LOLED.print('F'); // comms icon in this font set
-  ROLED.print('F'); // comms icon in this font set
-
-  // screen on (even in screensave mode)
-  LOLED.setPowerSave(false); 
-  ROLED.setPowerSave(false);
-
-  int preservebright = bright;
-  if (bright == 0) bright = 1; // display even when the screen is normally blanked
+  LOLED.drawGlyph(6,1,'F'); // Signal icon in this font set
+  ROLED.drawGlyph(6,1,'F');
+  interstatial=true;
   unblank();
-  bright = preservebright;
 }
 
 // Set the (non-linear) contrast/brightness level for supported displays
 bool setbrightness()
 { 
-  // Only update brightness when level has been changed
-  // (setContrast() can cause a screen flicker when called).
-  
-  if ( bright != currentbright ) {
-    // Set the new contrast value
-    LOLED.setContrast(bright);
+  // Only update brightness when level has been changed because
+  // setContrast() can cause a screen flicker when called.
+  if (bright != currentbright) 
+  {
+    LOLED.setContrast(bright); // Set the new contrast value
     ROLED.setContrast(bright);
-
-    // remember what we just did
-    currentbright = bright;
+    currentbright = bright;    // remember what we just did
   }
-  
   // return on/off status
-  if ( bright > 0 ) return (true); else return (false);
+  if ((bright > 0) && screenpower) return (true); else return (false);
 }
 
+// Print current progress (padded) on right display and blank rest of line
+void printprogress()
+{
+  ROLED.print(F("  "));
+  if (done < 100) ROLED.print(' ');
+  if (done < 10) ROLED.print(' ');
+  ROLED.print(done);
+  ROLED.print(F("%    "));
+}
+
+// Print 10 space chars on r/h display, saves a bunch of progmem since I do this a lot.
+void blankright()
+{
+  ROLED.print(F("          "));
+}
 
 /*   Update The Displays   */ 
 
@@ -283,6 +287,13 @@ void updatedisplay()
   int bedset = 0;
   int toolset = 0;
 
+  // If we currently have an interstatial screen clear it.
+  if (interstatial)
+  {
+    screenclean();
+    interstatial = false;
+  }
+
   // First update lower status line
   
   LOLED.setFont(u8x8_font_8x13_1x2_f);
@@ -291,50 +302,107 @@ void updatedisplay()
   LOLED.setCursor(0, 6);
   ROLED.setCursor(0, 6);
 
-  // Max 10 chars for a status string, '
-  // SHOWSTATUS' is special, it displays 'sleep' or 'idle' as appropriate.
-  if (printerstatus == 'O' )      {if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0)
-                                     LOLED.print(F(" Sleep    "));
-                                   else 
-                                     LOLED.print(ltext); 
-                                   ROLED.print(rtext);}
-  else if (printerstatus == 'I' ) {if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0)
-                                     LOLED.print(F(" Idle     "));
-                                   else 
-                                     LOLED.print(ltext); 
-                                   ROLED.print(rtext);}
-  else if (printerstatus == 'M' )  LOLED.print(F("Simulating"));
-  else if (printerstatus == 'B' )  LOLED.print(F(" Busy     "));
-  else if (printerstatus == 'P' )  LOLED.print(F(" Printing "));
-  else if (printerstatus == 'T' )  LOLED.print(F(" Tool     "));
-  else if (printerstatus == 'D' )  LOLED.print(F(" Pausing  "));
-  else if (printerstatus == 'A' )  LOLED.print(F(" Paused   "));
-  else if (printerstatus == 'R' )  LOLED.print(F(" Resuming "));
-  else if (printerstatus == 'S' )  LOLED.print(F(" Stopped  "));
-  else if (printerstatus == 'C' )  LOLED.print(F(" Config   "));
-  else if (printerstatus == 'F' )  LOLED.print(F(" Updating "));
-  else if (printerstatus == 'H' )  LOLED.print(F(" Halted  "));
-  else if (printerstatus == '-' )  LOLED.print(F("Connecting")); // never set by the printer, used during init.
-  else                             {LOLED.print(printerstatus);
-                                   LOLED.print(F("         "));}// Oops; has someone added a new status?
-    
-  if ((printerstatus == 'P') || (printerstatus == 'A') || 
-      (printerstatus == 'D') || (printerstatus == 'R') ||
-      (printerstatus == 'M')) {
-    // Display progress during printing states and simulation
-    ROLED.print(F("  "));
-    if ( done < 100 ) ROLED.print(' ');
-    if ( done < 10 ) ROLED.print(' ');
-    ROLED.print(done);
-    ROLED.print('%');
+  
+  if (printerstatus == 'O' )
+  {
+    if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) // 'SHOWSTATUS' displays actual state
+    {
+      LOLED.print(F(" Sleep    "));
+      blankright();
+    }
+    else 
+    {
+      LOLED.print(ltext); 
+      ROLED.print(rtext);
+    }
   }
-  else if ((printerstatus != 'I') && (printerstatus != 'O')) 
-  { 
-    ROLED.print(F("          ")); 
+  else if (printerstatus == 'I' )
+  {
+    if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) // 'SHOWSTATUS' displays actual state
+    {
+      LOLED.print(F(" Idle     "));
+      blankright();
+    }
+    else
+    {
+      LOLED.print(ltext); 
+      ROLED.print(rtext);
+    }
   }
-
+  else if (printerstatus == 'B' )
+  {
+    LOLED.print(F(" Busy     ")); // In busy mode put..
+    if (strcmp_P(ltext, PSTR("SHOWSTATUS")) == 0) blankright();// if not default..
+    else ROLED.print(ltext);      // left text on right display.
+  }
+  else if (printerstatus == 'M' )
+  {
+    LOLED.print(F("Simulating"));
+    printprogress();
+  }
+  else if (printerstatus == 'P' )
+  {
+    LOLED.print(F(" Printing "));
+    printprogress();
+  }
+  else if (printerstatus == 'T' )
+  {
+    LOLED.print(F(" Tool     "));
+    blankright();
+  }
+  else if (printerstatus == 'D' )
+  {
+    LOLED.print(F(" Pausing  "));
+    printprogress();
+  }
+  else if (printerstatus == 'A' )
+  {
+    LOLED.print(F(" Paused   "));
+    printprogress();
+  }
+  else if (printerstatus == 'R' )
+  {
+    LOLED.print(F(" Resuming "));
+    printprogress();
+  }
+  else if (printerstatus == 'S' )
+  {
+    LOLED.print(F(" Stopped  "));
+    blankright();
+  }
+  else if (printerstatus == 'C' )
+  {
+    LOLED.print(F(" Config   "));
+    blankright();
+  }
+  else if (printerstatus == 'F' )
+  {
+    LOLED.print(F(" Updating "));
+    blankright();
+  }
+  else if (printerstatus == 'H' )
+  {
+    LOLED.print(F(" Halted  "));
+    blankright();
+  }
+  else if (printerstatus == '-' )
+  {
+    // Dummy initial status, might be displayed if maxfail reset to zero before any M408 response.
+    LOLED.print(F("  Connecting to")); 
+    ROLED.print(F(" Printer")); 
+    return; // No data has been recieved yet, so dont update anything else
+  }
+  else
+  {
+    LOLED.print(' '); // pad
+    LOLED.print(printerstatus);  // Oops; has someone added a new status?
+    LOLED.print(F("        "));  // show it and blank rest
+    blankright();
+  }
+  
   handlebutton(); // catch the pause button
 
+  // Set temp according to the status of the heater
   if (heaterstatus[0] == 1) bedset = heaterstandby[0];
   else if (heaterstatus[0] == 2) bedset = heateractive[0];
   else if (heaterstatus[0] == 3) bedset = -1;
@@ -360,6 +428,7 @@ void updatedisplay()
     LOLED.print(char(176)); // degrees symbol
   }
 
+  // Set temp according to the status of the heater
   if (heaterstatus[toolhead+1] == 1) toolset = heaterstandby[toolhead+1];
   else if (heaterstatus[toolhead+1] == 2) toolset = heateractive[toolhead+1];
   else if (heaterstatus[toolhead+1] == 3) toolset = -1;
@@ -400,39 +469,33 @@ void updatedisplay()
   if ( bedset == -1 ) // fault
   {
     LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
-    LOLED.setCursor(14, 0);
-    LOLED.print('G'); // warning icon
+    LOLED.drawGlyph(14,0,'G'); // Warning icon in this font set
   }
   else if ( bedset == 0 ) // off
   {
     LOLED.setFont(u8x8_font_open_iconic_embedded_2x2);
-    LOLED.setCursor(14, 0);
-    LOLED.print('N'); // standby icon
+    LOLED.drawGlyph(14,0,'N'); // Standby icon in this font set
   }
   else
   { 
     LOLED.setFont(u8x8_font_open_iconic_thing_2x2);
-    LOLED.setCursor(14, 0);
-    LOLED.print('N'); // heater icon
+    LOLED.drawGlyph(14,0,'N'); // Heater icon in this font set
   }
 
   if ( toolset == -1 ) // fault
   {
     ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
-    ROLED.setCursor(14, 0);
-    ROLED.print('G'); // warning icon
+    ROLED.drawGlyph(14,0,'G'); // Warning icon in this font set
   }
   else if ( toolset <= 0 ) // off
   {
     ROLED.setFont(u8x8_font_open_iconic_embedded_2x2);
-    ROLED.setCursor(14, 0);
-    ROLED.print('N'); // standby icon
+    ROLED.drawGlyph(14,0,'N'); // Standby icon in this font set
   }
   else
   {
     ROLED.setFont(u8x8_font_open_iconic_arrow_2x2);
-    ROLED.setCursor(14, 0);
-    ROLED.print('T'); // down arrow to line (looks a bit like a hotend)
+    ROLED.drawGlyph(14,0,'T'); // Down arrow to line (looks a bit like a hotend)
   }
 
   handlebutton(); // catch the pause button
@@ -465,15 +528,30 @@ void updatedisplay()
   ROLED.print(char(176)); // degrees symbol
 }
 
+/* Send to Printer with a checksum */
+
+void sendwithcsum(char cmd[])   // cmd[] is assumed to be in PROGMEM...
+{
+  int cs = 0;
+  for(int i = 0; pgm_read_byte_near(cmd+i) != '*' && pgm_read_byte_near(cmd+i) != NULL; i++) {
+   Serial.write(pgm_read_byte_near(cmd+i));
+   cs = cs ^ pgm_read_byte_near(cmd+i);
+  }
+  cs &= 0xff;  // Only the lower bits
+  Serial.print("*");
+  Serial.println(cs);
+}
+
 /*    Button    */
 
-// Note; this would be better handled by a pin interrupt, however this works and is easier.
-// I simply repeatedly call this routine while updating the display or waiting for data
+// Note; Button detection would be better handled by a pin interrupt, but regular polling 
+// as implemented here also works, and is easier. 
+// This routine is repeatedly called while updating the display or waiting for data.
 void handlebutton()
 {
   // Process the button state and send pause/resume as appropriate
   
-  if (pausecontrol == 0) return; // fast exit if pause disabled 
+  if (buttoncontrol == 0) return; // fast exit if disabled 
   
   if (digitalRead(BUTTON)) // button is active low.
   {
@@ -488,37 +566,127 @@ void handlebutton()
     }
     return; 
   }
-  
   else if (pausetimer == -1) 
   {
     // command has been sent, ensure LED off and stop processing
     analogWrite(LED,0); // led off
     return; 
   }
-  
-  else if ((printerstatus == 'P') || (printerstatus == 'A'))
-  {
-    // Button is pressed while printing or paused
-    if (pausetimer == 0) 
-    { 
-      pausetimer = millis(); // start timer as needed
-      analogWrite(LED,255); // led on full
-      #ifdef DEBUG 
-        Serial.println(F("Pausetimer Started")); 
-      #endif
-    }
+  else // Look to see if we need to start timer
+  if (pausetimer == 0) 
+  { 
+    pausetimer = millis(); // start timer as needed
+    #ifdef DEBUG 
+      Serial.println(F("Pausetimer Started")); 
+    #endif
+  }
 
-    // When timer expires take action
-    if (millis() > (pausetimer + pausecontrol)) 
-    {
-      // Button held down for timeout; send commands as appropriate;
-      if (printerstatus == 'A') Serial.println(F("M24*75"));
-      if (printerstatus == 'P') Serial.println(F("M25*74"));
-      pausetimer = -1; // -1 means we have sent the command
+  // Button is pressed and active, turn LED on.
+  analogWrite(LED,255); // led on full
+
+  // When timer expires take action
+  if (millis() > (pausetimer + buttoncontrol)) 
+  {
+    switch(buttonconfig) {
+    // Send commands as appropriate depending on current status and action config
+    case 1:
+      rrfpauseresume();
+      break;
+    case 2:
+      rrfpauseresume();
+      octopauseresume();
+      break;
+    case 11:
+      rrfpauseresume();
+      if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
+      break;
+    case 22:
+      rrfpauseresume();
+      if (octopauseresume()) break;
+      if (strchr_P(PSTR("IO"),printerstatus)) rrfemergencystop();
+      break;
+    case 33: 
+      if (rrfpauseresume()) break;
+      rrfemergencystop();
+      break;
+    case 44: 
+      if (rrfpauseresume()) break;
+      if (octopauseresume()) break;
+      rrfemergencystop();
+      break;
+    case 99: 
+      rrfemergencystop(); // always do a stop
+      break;
+    default:
+      break; // do nothing..
     }
+    pausetimer = -1;    // -1 = command sent(halts the cycle till the button is released)
   }
 }
 
+// Functions to assist the button actions
+
+bool rrfpauseresume()
+{  // send a RRF/Duet pause or resume as appropriate
+  if (printerstatus == 'A') 
+  {
+    sendwithcsum(PSTR("M24"));
+    return(true);
+  }
+  else if (printerstatus == 'P')
+  {
+    sendwithcsum(PSTR("M25"));
+    return(true);
+  }
+  return(false);
+}
+
+void rrfemergencystop()
+{  // send M112 to RRF/Duet to trigger an emergency stop
+  sendwithcsum(PSTR("M112"));
+  for (int a=0; a<6; a++) { // briefly, but furiously, flash led
+    analogWrite(LED,255); 
+    delay(25);
+    analogWrite(LED,0);
+    delay(25);
+  }  
+  goblank();
+  LOLED.setPowerSave(false); // in case screen is currently in powersave
+  ROLED.setPowerSave(false);
+  LOLED.setFont(u8x8_font_8x13_1x2_f);
+  ROLED.setFont(u8x8_font_8x13_1x2_f);
+  LOLED.setCursor(0, 6);
+  ROLED.setCursor(0, 6);
+  LOLED.print(F("    EMERGENCY   ")); 
+  ROLED.print(F("      STOP      "));
+  LOLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  ROLED.setFont(u8x8_font_open_iconic_embedded_4x4);
+  LOLED.drawGlyph(6,1,'G'); // Warning icon in this font set
+  ROLED.drawGlyph(6,1,'G');
+  unblank();
+  interstatial=true;
+  delay(1500); // Give the printer time to die...
+  noreply = 0; // reset reply counter and start looking for a response
+}
+
+bool octopauseresume()
+{ // cycle between a pause/resume octoprint action command. 
+  // Pause when busy and unpaused; resume if paused and idle.
+  if (printerstatus == 'B' && !octopaused)
+  { 
+    // Send octoprint pause command when busy 
+    sendwithcsum(PSTR("M118 P1 S\"//action:pause\""));
+    octopaused = true;
+    return(true);
+  }
+  if (printerstatus == 'I' && octopaused)
+  { // Send octoprint resume command from idle state when paused
+    sendwithcsum(PSTR("M118 P1 S\"//action:resume\"")); 
+    octopaused = false;
+    return(true);
+  }
+  return(false);
+}
 
 /*    JSON processing    */
 
@@ -602,19 +770,12 @@ bool jsonparser()
         
         if (strcmp_P(result, PSTR("status")) == 0)
         {
-          char oldstatus = printerstatus;
           printerstatus = value[0];
-          if( ((oldstatus == 'I') || (oldstatus == 'O')) && ((printerstatus != 'I') && (printerstatus != 'O')) )
-          {
-            // we are leaving Idle mode, clear idletext
-            LOLED.clearLine(6);LOLED.clearLine(7);
-            ROLED.clearLine(6);ROLED.clearLine(7);
-          }
         }
         else if( strcmp_P(result, PSTR("tool")) == 0 )
         {
           toolhead = atoi(value);
-          if ((toolhead < 0) || (toolhead >= HEATERS)) toolhead = 0;
+          if ((toolhead < 0) || (toolhead+1 >= HEATERS)) toolhead = 0;
         }
         else if( strcmp_P(result, PSTR("fraction_printed")) == 0 )
         {
@@ -626,8 +787,9 @@ bool jsonparser()
         }
         else if( strcmp_P(result, PSTR("pe_fails")) == 0 )
         {
-          maxfail = atoi(value);
-          if (maxfail == -1) screenclean(); // cleanup for when this is set while 'waiting for printer'
+          byte f = atoi(value); // cleanup any existing 'waiting for printer' display when this changes
+          if (f != maxfail) screenclean(); 
+          maxfail = f;
         }
         else if( strcmp_P(result, PSTR("pe_bright")) == 0 )
         {
@@ -638,30 +800,27 @@ bool jsonparser()
           if( strcmp_P(value, PSTR("true")) == 0 ) screensave = true; 
           else { screensave = false; if (!screenpower) screenwake(); } // force screen on.
         }
-        else if( strcmp_P(result, PSTR("pe_pause")) == 0 )
+        else if( strcmp_P(result, PSTR("pe_bdelay")) == 0 )
         {
-          pausecontrol = atoi(value);
+          buttoncontrol = atoi(value);
+        }
+        else if( strcmp_P(result, PSTR("pe_bcfg")) == 0 )
+        {
+          buttonconfig = atoi(value);
         }
         else if( strcmp_P(result, PSTR("pe_led")) == 0 )
         {
           activityled = atoi(value);
         }
-        else if( strcmp_P(result, PSTR("pe_lmsg")) == 0 )
+        else if( strcmp_P(result, PSTR("pe_imsg")) == 0 )
         {
           byte s = strlen(value);
           for( byte a = 0; a < 10; a++ ) 
           {
-            if( a < s ) ltext[a] = value[a]; else ltext[a] = ' '; // copy or pad as appropriate
+            if( a < s ) ltext[a] = value[a]; else ltext[a] = ' '; // copy/pad as appropriate
+            if( a+10 < s ) rtext[a] = value[a+10]; else rtext[a] = ' '; // copy/pad as appropriate
           }
           ltext[10]='\0';
-        }
-        else if (strcmp_P(result, PSTR("pe_rmsg")) == 0)
-        {
-          byte s = strlen(value);
-          for( byte a = 0; a < 10; a++ ) 
-          {
-            if( a < s ) rtext[a] = value[a]; else rtext[a] = ' '; // copy or pad as appropriate
-          }
           rtext[10]='\0';
         }
       }
@@ -702,14 +861,16 @@ bool jsonparser()
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) heateractive[idx] = atoi(values[idx]);
+            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) 
+              heateractive[idx] = atoi(values[idx]);
           }
         }
         else if (strcmp_P(result, PSTR("standby")) == 0)
         {
           for( int idx=0; idx < num_values; idx++) 
           {
-            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) heaterstandby[idx] = atoi(values[idx]);
+            if(( atoi(values[idx]) >= -99 ) && ( atoi(values[idx]) <= 999 )) 
+              heaterstandby[idx] = atoi(values[idx]);
           }
         }
         else if (strcmp_P(result, PSTR("hstat")) == 0)
@@ -730,12 +891,12 @@ bool jsonparser()
 
   // If we get here we have recieved a valid Json response from the printer
   // Clear the screens if 'Waiting for Printer' message is currently being displayed
-  if ((noreply >=  maxfail) && (maxfail != -1)) screenclean();
+  if ((noreply >=  maxfail) && (maxfail != 0)) screenclean();
 
   // kill the activity LED unless pause button pressed
   if (pausetimer == 0) analogWrite(LED, 0); 
 
-  return(true);  // we have processed a valid block, does not assert whether data has been updated
+  return(true);  // we have processed a valid block of data
 }
 
 
@@ -763,20 +924,20 @@ void loop(void)
   {
     if ( millis() > timeout ) {
       // Send the Magic command to ask for Json data (with checksum).
-      Serial.println(F("M408 S0*50"));
+      sendwithcsum(PSTR("M408 S0"));
       timeout = millis() + updateinterval; // and start the clock
     }
   
-    if (maxfail != -1) {
-      // once max number of failed requests is reached, show 'waiting for printer'
-      if ( noreply == maxfail ) commwait();
-    }
+    // once max number of failed requests is reached, show 'waiting for printer'
+    if ((noreply ==  maxfail) && (maxfail != 0)) commwait();
 
     while ( millis() <= timeout && !jsonstart )
-    {
-      // check button and look for a '{' on the serial port for a time defined by 'updateinterval'
+    { // look for a '{' on the serial port for a time defined by 'updateinterval'
+      // first, check button 
       handlebutton();
+      // delay for a ms
       delay(1);
+      // set flag if '{' on the serial port
       if (Serial.read() == '{')
       {
         // flag to exit the nested while loops and process input
@@ -855,12 +1016,23 @@ void loop(void)
     if (( printerstatus != 'O') && !screenpower) screenwake();
   }
 
-  // Update Screen!
-  // First update brightness level as needed (returns true if screen is on, false if blank) 
-  // Test if we have had a response during this requestcycle
-  // Determine whether we are in standby mode
-  // Only update the display if needed 
-  if (setbrightness() && screenpower && (noreply == 0)) updatedisplay();
+  /*    Update Screen!  */
+  
+  // First check & update brightness level as needed (returns true if screen is on, false if blank) 
+  // also Test if we have had a response during this requestcycle
+  // Only update the display if both true
+  if (setbrightness() && (noreply == 0)) updatedisplay();
 
-  // Now loop back to waiting for Json and sending requests
+  // If we are in powersave mode and have an interstatial (waiting for printer, emergency stop), 
+  // restore the powersave state
+  if (interstatial && !screenpower)
+  {
+    goblank();
+    LOLED.setPowerSave(true);
+    ROLED.setPowerSave(true);
+    interstatial = false;
+  }
+
+  
+  // Now loop back to waiting for Json and sending requests 
 }
