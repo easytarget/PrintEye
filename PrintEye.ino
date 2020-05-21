@@ -54,7 +54,7 @@
 #define JSONSIZE 508    // Json incoming buffer size
 #define MAXTOKENS 87    // Maximum number of jsmn tokens we can handle (see jsmn docs, 8 bytes/token)
 #define HEATERS 5       // Bed + Up to 4 extruders
-#define JSONWINDOW 500; // How many ms allowed for the rest of the object to arrive after '{' is recieved
+#define JSONWINDOW 500  // How many ms allowed for the rest of the object to arrive after '{' is recieved
 
 // U8x8 Contructors for my displays and wiring
 // The complete list is available here: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
@@ -108,7 +108,7 @@ byte heaterdecimal[HEATERS];
 byte noreply = 1;             // count failed requests (default: assume we have already missed one)
 byte currentbright = 0;       // track changes to brightness
 bool screenpower = true;      // OLED power status
-unsigned long pausetimer = 0; // A time store for the pause button
+unsigned long buttontime = 0; // A time store for the pause button
 bool octopaused = false;      // Track whether we have sent Octoprint a pausecommand
 bool interstatial = false;    // Are we displaying a splashscreen?
 
@@ -530,7 +530,7 @@ void updatedisplay()
 
 /* Send to Printer with a checksum */
 
-void sendwithcsum(char cmd[])   // cmd[] is assumed to be in PROGMEM...
+void sendwithcsum(const char cmd[])   // cmd[] is assumed to be in PROGMEM...
 {
   int cs = 0;
   for(int i = 0; pgm_read_byte_near(cmd+i) != '*' && pgm_read_byte_near(cmd+i) != NULL; i++) {
@@ -556,28 +556,28 @@ void handlebutton()
   if (digitalRead(BUTTON)) // button is active low.
   {
     // button not pressed, reset pause timer if needed and exit asap
-    if (pausetimer != 0) 
+    if (buttontime != 0) 
     { 
       analogWrite(LED, 0); // led off
       #ifdef DEBUG
-        Serial.println(F("Pausetimer reset"));
+        Serial.println(F("Buttontimer reset"));
       #endif
-      pausetimer = 0;
+      buttontime = 0;
     }
     return; 
   }
-  else if (pausetimer == -1) 
+  else if (buttontime == -1) 
   {
-    // command has been sent, ensure LED off and stop processing
+    // command already sent, ensure LED off and stop processing
     analogWrite(LED,0); // led off
     return; 
   }
   else // Look to see if we need to start timer
-  if (pausetimer == 0) 
+  if (buttontime == 0) 
   { 
-    pausetimer = millis(); // start timer as needed
+    buttontime = millis(); // start timer as needed
     #ifdef DEBUG 
-      Serial.println(F("Pausetimer Started")); 
+      Serial.println(F("Buttontimer Started")); 
     #endif
   }
 
@@ -585,7 +585,7 @@ void handlebutton()
   analogWrite(LED,255); // led on full
 
   // When timer expires take action
-  if (millis() > (pausetimer + buttoncontrol)) 
+  if ((millis() - buttontime) > buttoncontrol)
   {
     switch(buttonconfig) {
     // Send commands as appropriate depending on current status and action config
@@ -620,7 +620,7 @@ void handlebutton()
     default:
       break; // do nothing..
     }
-    pausetimer = -1;    // -1 = command sent(halts the cycle till the button is released)
+    buttontime = -1;    // -1 = command sent(halts the cycle till the button is released)
   }
 }
 
@@ -712,7 +712,7 @@ bool jsonparser()
   #endif
 
   // blink LED while processing and pause button not pressed
-  if (pausetimer == 0) analogWrite(LED, activityled);
+  if (buttontime == 0) analogWrite(LED, activityled);
   
   // Parse 
   int parsed = jsmn_parse(&jparser, json, index+1, jtokens, MAXTOKENS);
@@ -727,7 +727,7 @@ bool jsonparser()
     #ifdef DEBUG 
       Serial.println(F("Not a Json Object"));
     #endif
-    if (pausetimer == 0) analogWrite(LED, 0);
+    if (buttontime == 0) analogWrite(LED, 0);
     return(false);
   }
 
@@ -736,7 +736,7 @@ bool jsonparser()
     #ifdef DEBUG 
       Serial.println(F("Empty Json Object"));
     #endif
-    if (pausetimer == 0) analogWrite(LED, 0);
+    if (buttontime == 0) analogWrite(LED, 0);
     return(false);
   }
 
@@ -894,14 +894,14 @@ bool jsonparser()
   if ((noreply >=  maxfail) && (maxfail != 0)) screenclean();
 
   // kill the activity LED unless pause button pressed
-  if (pausetimer == 0) analogWrite(LED, 0); 
+  if (buttontime == 0) analogWrite(LED, 0); 
 
   return(true);  // we have processed a valid block of data
 }
 
 
 /*    Loop    */
-static unsigned long timeout = 0;
+static unsigned long starttime = 0;
 static bool jsonstart;
 
 void loop(void)
@@ -922,16 +922,16 @@ void loop(void)
   jsonstart = false;
   do 
   {
-    if ( millis() > timeout ) {
+    if ( millis() - starttime > updateinterval ) {
       // Send the Magic command to ask for Json data (with checksum).
       sendwithcsum(PSTR("M408 S0"));
-      timeout = millis() + updateinterval; // and start the clock
+      starttime = millis(); // and start the clock
     }
   
     // once max number of failed requests is reached, show 'waiting for printer'
     if ((noreply ==  maxfail) && (maxfail != 0)) commwait();
 
-    while ( millis() <= timeout && !jsonstart )
+    while (((millis() - starttime) <= updateinterval) && !jsonstart )
     { // look for a '{' on the serial port for a time defined by 'updateinterval'
       // first, check button 
       handlebutton();
@@ -956,7 +956,7 @@ void loop(void)
   index = 0;
   byte nest = 0; //measure nesting of json braces, nest=1 at top level
   char incoming = '{'; // we know the string started with this
-  unsigned long jtimeout = millis() + JSONWINDOW; // timeout while recieving the json data
+  unsigned long jbegin = millis(); // timeout while recieving the json data
 
   while ((incoming != '}') || (nest > 1)) // the closing } will exit the loop
   {
@@ -977,7 +977,7 @@ void loop(void)
       #endif
       break;
     }
-    if (millis() > jtimeout)
+    if ( millis() - jbegin > JSONWINDOW )
     {
       index = 0;
       #ifdef DEBUG 
