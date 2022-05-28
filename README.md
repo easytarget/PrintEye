@@ -44,6 +44,11 @@ I have subsequently found [MiniCore](https://github.com/MCUdude/MiniCore), which
 ## Development
 I used the Arduino IDE for development and testing; and did a lot of work using the serial monitor to debug the printer operation after capturing a lot of typical `M408` responses at the start of the project ([see this](./tools/M408log.txt))
 
+## Duet/RRF Configuration
+With 3.x Duet/RRF versions you need to specifically enable the UART output by adding the following line to the startup configuration in `config.g`:
+
+```M575 P1 B57600 S0    ; Enable serial for PrintEye```
+
 ## Control
 You can use `M118` from the terminal or in your macros to configure the PrintEye via Json.
 
