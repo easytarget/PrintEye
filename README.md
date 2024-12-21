@@ -1,3 +1,16 @@
+
+# Depreciated!
+
+RRF 3.5.0 and later no longer support the `M408` information fetch command used by PrintEYE
+
+See : https://github.com/easytarget/PrintPy2040
+
+- This is a replacement based on the new ObjectModel data system
+- It uses a RP2040 MCU, is smaller, does not need a custom PCB and looks better!
+
+
+For Posterity:
+(I am archiving this repo now)
 ## Little Eyes For a printer..
 # Temperature display for RepRap firmware (eg Duet)
 
